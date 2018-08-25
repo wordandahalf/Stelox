@@ -1,0 +1,6 @@
+.vscode/
+
+logfile.txt
+*.img
+*.bin
+*.o
