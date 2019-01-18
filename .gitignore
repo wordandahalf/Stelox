@@ -4,3 +4,4 @@ logfile.txt
 *.img
 *.bin
 *.o
+bochs.log
