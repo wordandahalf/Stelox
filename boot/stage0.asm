@@ -1,5 +1,4 @@
-[BITS 16]
-[ORG 0x7C00]
+BITS 16
 
 jmp 0x0:main
 
@@ -13,7 +12,6 @@ print_string:
 .done:
     ret
 
-loading_message db "Loading bootloader...", 0xD, 0x0A, 0x0
 stage1_address  equ 0x500
 
 reset_disk:
@@ -59,12 +57,9 @@ main:
     mov     sp, 0xFFFF
     sti
 
-    mov     si, loading_message
-    call    print_string
-
     call    reset_disk
 
-    mov     al, 0x1
+    mov     al, 0x2
     mov     ch, 0x0
     mov     cl, 0x2
     mov     dh, 0x0

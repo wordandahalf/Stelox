@@ -1,7 +1,10 @@
 .vscode/
 
 logfile.txt
+*.iso
+*.elf
 *.img
 *.bin
 *.o
+*.flp
 bochs.log
