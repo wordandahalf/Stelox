@@ -1,6 +1,6 @@
 unsigned char *terminal_buffer = (unsigned char*) 0xB8000;
 
-int main(void)
+int kmain(void)
 {
     terminal_buffer[0] = 'H';
     terminal_buffer[1] = 0x1B;

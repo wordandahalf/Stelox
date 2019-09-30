@@ -44,6 +44,7 @@ enter_protected_mode:
     hlt
 
 BITS 32
+extern kmain
 protected_mode_main:
     mov     ax, 0x10                ; The GDT's data descriptor is 16 bytes from the offset
     mov     ds, ax
@@ -54,6 +55,6 @@ protected_mode_main:
 
     mov     esp, 0x90000
 
-    jmp     0x6b0
+    jmp     kmain
 hang:
     jmp     hang
