@@ -9,8 +9,8 @@ BOOTLOADER_OBJECTS		+= $(subst .c,.o,$(BOOTLOADER_C_SOURCES))
 
 BOOTLOADER_IMAGE		:= $(BOOTLOADER_FOLDER)/boot.img
 
-KERNEL_SOURCES 			:= $(shell find $(KERNEL_FOLDER) -type f -iname "*.c")
-KERNEL_OBJECTS 			:= $(foreach x,$(basename $(C_SOURCES)),$(x).o)
+KERNEL_SOURCES 			:= $(KERNEL_FOLDER)/kernel.c
+KERNEL_OBJECTS 			:= $(subst .c,.o,$(KERNEL_SOURCES))
 
 KERNEL_IMAGE			:= $(KERNEL_FOLDER)/kernel.elf
 
@@ -24,8 +24,7 @@ NASM					:= nasm
 NASM_FLAGS				:= -f elf32
 
 DD						:= dd
-DD_FLAGS				:= bs=512
-DD_SILENCE				:= > /dev/null 2>&1
+DD_FLAGS				:= status=none bs=512
 
 CP						:= cp
 
@@ -39,7 +38,7 @@ LD						:= ld
 LD_FLAGS				:= -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 MKISOFS					:= mkisofs
-MKISOFS_FLAGS			:= -input-charset utf-8 -o $(OS_ISO) -V Stelox -b $(OS_FLOPPY) $(ISO_FOLDER)
+MKISOFS_FLAGS			:= -quiet -input-charset utf-8 -o $(OS_ISO) -V Stelox -b $(OS_FLOPPY) $(ISO_FOLDER)
 
 QEMU					:= qemu-system-i386
 QEMU_FLAGS				:= -cdrom $(OS_ISO)
@@ -48,6 +47,7 @@ all: clean compile todo run
 
 clean:
 	-@rm -r $(BOOTLOADER_OBJECTS) $(KERNEL_OBJECTS) $(BOOTLOADER_IMAGE) $(OS_IMAGE) $(OS_FLOPPY) $(OS_ISO) $(ISO_FOLDER)/*
+	-@mkdir -p $(ISO_FOLDER) > /dev/null 2>&1
 	@echo Done cleaning!
 
 compile: $(BOOTLOADER_OBJECTS) $(KERNEL_OBJECTS)
@@ -61,14 +61,21 @@ $(BOOTLOADER_FOLDER)/%.o:$(BOOTLOADER_FOLDER)/%.c
 	@$(GCC) -c $< -o $@ -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 
 $(BOOTLOADER_IMAGE):$(BOOTLOADER_OBJECTS)
-	@$(foreach file,$(BOOTLOADER_OBJECTS),dd bs=512 if=$(file) >> $(BOOTLOADER_IMAGE) $(DD_SILENCE);)
+	@$(foreach file,$(BOOTLOADER_OBJECTS),dd status=none bs=512 if=$(file) >> $(BOOTLOADER_IMAGE);)
 
-$(OS_IMAGE):$(BOOTLOADER_IMAGE) $(KERNEL_OBJECTS)
-	@$(DD) if=/dev/zero of=$(OS_FLOPPY) bs=512 count=2880 $(DD_SILENCE)
+$(KERNEL_FOLDER)/%.o:$(KERNEL_FOLDER)/%.c
+	@echo Compiling $<...
+	@$(GCC) -m32 -fno-pie -c $< -o $@ $(GCC_FLAGS)
+
+$(KERNEL_IMAGE):$(KERNEL_OBJECTS)
+	@$(LD) -e main -m elf_i386 $(KERNEL_OBJECTS) -o $(KERNEL_IMAGE)
+
+$(OS_IMAGE):$(BOOTLOADER_IMAGE) $(KERNEL_IMAGE)
+	@$(DD) if=/dev/zero of=$(OS_FLOPPY) $(DD_FLAGS) count=2880
 
 	@echo Linking into $(OS_IMAGE) using $(BOOTLOADER_LINKER)
-	@$(LD) -T $(BOOTLOADER_LINKER) -o $@ $(BOOTLOADER_OBJECTS) $(KERNEL_OBJECTS)
-	@$(DD) conv=notrunc if=$(OS_IMAGE) of=$(OS_FLOPPY) bs=512 $(DD_SILENCE)
+	@$(LD) -T $(BOOTLOADER_LINKER) -o $@ $(BOOTLOADER_OBJECTS)
+	@$(DD) conv=notrunc if=$(OS_IMAGE) of=$(OS_FLOPPY) $(DD_FLAGS)
 
 	@$(CP) $(OS_FLOPPY) $(ISO_FOLDER)/$(OS_FLOPPY)
 	@#For the unacquainted, the $($(KERNEL_IMAGE):%/=) simply reduces the KERNEL_IMAGE variable down to just the file name, without the path
