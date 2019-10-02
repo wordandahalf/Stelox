@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 
 struct Terminal {
     unsigned short *buffer;
@@ -42,25 +43,61 @@ static void terminal_init()
     terminal.buffer = (unsigned short*) 0xB8000;
 }
 
-static void putch(uint8_t ch)
+static void put_char(uint8_t ch)
 {
-    if(++terminal.selected_column == terminal.width)
+    if(ch == '\n')
     {
-        terminal.selected_column = 0;
-
-        if(++terminal.selected_row == terminal.height)
-        {
-            terminal.selected_row = 0;
-        }
+        terminal.selected_column = -1;
+        terminal.selected_row = (terminal.selected_row + 1) % terminal.height;
+        return;
     }
+
+    if(((terminal.selected_column + 1) == terminal.width))
+        terminal.selected_row = (terminal.selected_row + 1) % terminal.height;
+
+    terminal.selected_column = (terminal.selected_column + 1) % terminal.width;
     
     terminal.buffer[terminal.selected_column + (terminal.selected_row * terminal.width)] = create_vga_character(ch, create_vga_color(0xF, 0x0));
 }
 
-static void puts(char *str)
+static void put_string(char *str)
 {
     for(int i = 0; str[i]; i++)
-        putch(str[i]);
+        put_char(str[i]);
+}
+
+static void put_hex(uint32_t hex, bool prefix)
+{
+    static const uint8_t HEX_CHARS[] = {'0','1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D','E','F'};
+
+    if(prefix)
+        put_string("0x");
+
+    if(hex == 0)
+    {
+        put_char('0');
+        return;
+    }
+
+    bool not_leading = false;
+
+    for(int shft = 28; shft > -4; shft -= 4)
+    {
+        uint8_t ch = (hex >> shft) & 0xF;
+
+        if(ch > 0)
+        {
+            if(!not_leading)
+                not_leading = true;
+
+            put_char(HEX_CHARS[ch]);
+        }
+        else
+        {
+            if(not_leading)
+                put_char('0');
+        }
+    }
 }
 
 static inline void outb(uint16_t port, uint8_t val)
@@ -77,9 +114,17 @@ static inline uint8_t inb(uint16_t port)
     return ret;
 }
 
-static void read_sector(uint32_t lba, uint8_t sectors, int64_t buffer_address)
+static void read_sector(uint32_t lba, uint8_t sectors, uint8_t *buffer)
 {
     uint8_t address = (uint8_t) ((lba >> 24) | 0b11100000);
+
+    put_string("Reading ");
+    put_hex(sectors, true);
+    put_string(" sector(s) into ");
+    put_hex((uint32_t) buffer, true);
+    put_string(" from LBA ");
+    put_hex(lba, true);
+    put_string("...\n");
 
     outb(0x01F6, address); // Send bits 24-27 of the LBA for first sector
     outb(0x01F2, sectors); // Send number of sectors
@@ -89,12 +134,20 @@ static void read_sector(uint32_t lba, uint8_t sectors, int64_t buffer_address)
 
     outb(0x01F7, 0x20); // Command for read w/ retry
 
-    while(!(0x8 & inb(0x01F7))) {}
+    put_string("Sent ATAPIO commands!\n");
 
-    for(int i = 0; i < 255; i++)
+    while((0x8 & inb(0x01F7)) == 0) {}
+
+    put_string("ATA device ready!\n");
+
+    for(int i = 0; i < 255 * sectors; i++)
     {
-        //Input word from I/O port specified in DX into memory location specified in ES:(E)DI or RDI.
-    }    
+        //read word from port DX into address
+
+        buffer[i] = inb(0x01F0);
+    }
+
+    put_string("Done reading.\n");
 
     /*
                mov rax, 256         ; to read 256 words = 1 sector
@@ -103,7 +156,7 @@ static void read_sector(uint32_t lba, uint8_t sectors, int64_t buffer_address)
                mul bx               ; dx:ax = ax * bx
                mov rcx, rax         ; RCX is counter for INSW
                mov rdx, 0x1F0       ; Data port, in and out
-               rep insw             ; in to [RDI]
+               rep insw             ; Input (E)CX words from port DX into ES:[(E)DI]
     */
 }
 
@@ -111,9 +164,9 @@ int kmain(void)
 {
     terminal_init();
 
-    puts("Welcome to Stelox v0.0.1!");
+    put_string("Welcome to Stelox v0.0.1!\n");
 
-    read_sector(0, 1, 0x7E00);
+    read_sector(0, 1, (uint8_t*)0x7E00);
 
     for(;;);
 
