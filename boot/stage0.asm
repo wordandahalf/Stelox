@@ -12,7 +12,7 @@ print_string:
 .done:
     ret
 
-stage1_address  equ 0x500
+address  equ 0x500
 
 reset_disk:
     mov     ah, 0x0
@@ -65,11 +65,11 @@ main:
     mov     dh, 0x0
     mov     dl, 0x0
 
-    mov     bx, stage1_address
+    mov     bx, address
 
     call    read_disk
 
-    jmp     0x000:stage1_address
+    jmp     0x000:address
 
     cli
     hlt
