@@ -160,7 +160,7 @@ static void read_sector(uint32_t lba, uint8_t sectors, uint8_t *buffer)
     */
 }
 
-int kmain(void)
+int loader_main(void)
 {
     terminal_init();
 

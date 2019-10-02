@@ -2,17 +2,7 @@ BITS 16
 
 jmp 0x0:main
 
-print_string:
-    lodsb
-    or      al, al
-    jz      .done
-    mov     ah, 0x0E
-    int     0x10
-    jmp     print_string
-.done:
-    ret
-
-address  equ 0x500
+address  equ 0x0500
 
 reset_disk:
     mov     ah, 0x0
@@ -45,31 +35,31 @@ read_disk:
     ret
 
 main:
-    cli
-    xor     ax, ax
+    cli                                 ; Disable interrupts -- what we're about to do will trip one otherwise
+    xor     ax, ax                      ; Clear all the segment registers
     mov     ds, ax
     mov     es, ax
     mov     fs, ax
     mov     gs, ax
 
-    mov     ax, 0x0000
+    mov     ax, 0x0000                  ; Set up the stack
     mov     ss, ax
     mov     sp, 0xFFFF
-    sti
+    sti                                 ; Re-enable interrupts
 
-    call    reset_disk
+    call    reset_disk                  ; Reset the floppy to the first sector
 
-    mov     al, 0x2
-    mov     ch, 0x0
-    mov     cl, 0x2
-    mov     dh, 0x0
-    mov     dl, 0x0
+    mov     al, 0x2                     ; Read two sectors
+    mov     ch, 0x0                     ; from from the first cylinder
+    mov     cl, 0x2                     ; starting at the second sector
+    mov     dh, 0x0                     ; on the first head
+    mov     dl, 0x0                     ; on the first drive
 
-    mov     bx, address
+    mov     bx, address                 ; Load it at 0x0000:0x0500
 
     call    read_disk
 
-    jmp     0x000:address
+    jmp     0x0000:address
 
     cli
     hlt
