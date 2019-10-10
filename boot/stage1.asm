@@ -1,6 +1,6 @@
 BITS 16
 
-jmp main
+jmp stage1
 
 %include    "bios.inc"
 %include    "a20.inc"
@@ -10,7 +10,8 @@ loading_message     db  "Loading...", 0xD, 0xA, 0x0
 
 error_message  db  "Unrecoverable error, please try restarting...", 0xD, 0xA, 0x0
 
-main:
+global stage1
+stage1:
     mov     si, loading_message
     call    print_string
 
@@ -26,7 +27,7 @@ main:
 enter_protected_mode:
     cli
 
-    xor     ax, ax
+    xor     eax, eax
     mov     ds, ax                      ; The GDT is located at DS:gdtp
 
     lgdt    [gdtp]

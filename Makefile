@@ -36,10 +36,10 @@ LD						:= ld
 LD_FLAGS				:= -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 MKISOFS					:= mkisofs
-MKISOFS_FLAGS			:= -graft-points -quiet -R -V Stelox -input-charset utf-8 -o $(OS_ISO) -b boot/boot.img $(ISO_FOLDER) boot/boot.img=$(OS_FLOPPY) kernel/kernel.elf=$(KERNEL_IMAGE)
+MKISOFS_FLAGS			:= -quiet -R -J -c boot/bootcat -b boot/boot.img -no-emul-boot -boot-load-size 4 -o $(OS_ISO) -V SteloxCD -input-charset utf-8 -graft-points boot/boot.img=$(OS_FLOPPY) kernel/kernle.elf=$(KERNEL_IMAGE)
 
 QEMU					:= qemu-system-i386
-QEMU_FLAGS				:= -drive format=raw,media=cdrom,file=$(OS_ISO)
+QEMU_FLAGS				:= -cdrom $(OS_ISO)
 
 all: clean compile todo run
 
