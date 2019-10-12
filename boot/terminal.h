@@ -3,20 +3,28 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
+
 #include "io.h"
 
 typedef struct {
-    unsigned short *buffer;
+    uint16_t *buffer;
 
-    int selected_row;
-    int selected_column;
+    uint8_t current_color;
+    uint8_t default_color;
 
-    const int width;
-    const int height;
+    uint8_t selected_row;
+    int8_t selected_column;
+
+    const uint8_t width;
+    const uint8_t height;
 } Terminal;
 
 Terminal terminal = {
     .buffer = (unsigned short*)0xB8000,
+
+    .current_color = 0x0F,
+    .default_color = 0x0F,
 
     .selected_row = 0,
     .selected_column = -1,
@@ -57,7 +65,7 @@ void update_cursor(Terminal terminal)
     outb(0x03D5, (uint8_t) ((position >> 8) & 0xFF));
 }
 
-void put_char(uint8_t ch)
+void put_char(char ch)
 {
     if(ch == '\n')
     {
@@ -71,7 +79,7 @@ void put_char(uint8_t ch)
 
     terminal.selected_column = (terminal.selected_column + 1) % terminal.width;
     
-    terminal.buffer[terminal.selected_column + (terminal.selected_row * terminal.width)] = create_vga_character(ch, create_vga_color(0xF, 0x0));
+    terminal.buffer[terminal.selected_column + (terminal.selected_row * terminal.width)] = create_vga_character(ch, terminal.current_color);
 
     update_cursor(terminal);
 }
@@ -82,38 +90,109 @@ void put_string(char *str)
         put_char(str[i]);
 }
 
-void put_hex(uint32_t hex, bool prefix)
+char *itoa(int32_t value, char *result, uint8_t base)
 {
-    const uint8_t HEX_CHARS[] = {'0','1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D','E','F'};
+    if(base < 2 || base > 36) { *result = '\0'; return result; }
 
-    if(prefix)
-        put_string("0x");
+    char *ptr = result, *ptr1 = result, tmp_char;
+    int32_t tmp_value;
 
-    if(hex == 0)
+    do
     {
-        put_char('0');
-        return;
+        tmp_value = value;
+        value /= base;
+        *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - value * base)];
+    } while(value);
+
+    if(tmp_value < 0) *ptr++ = '-';
+    *ptr-- = '\0';
+    while(ptr1 < ptr)
+    {
+        tmp_char = *ptr;
+        *ptr-- = *ptr1;
+        *ptr1++ = tmp_char;
     }
 
-    bool not_leading = false;
+    return result;
+}
 
-    for(int shft = 28; shft > -4; shft -= 4)
+void put_int(int32_t value, uint8_t base)
+{
+    uint8_t number_of_digits = 0;
+    uint32_t copy = value;
+
+    while(copy > 0)
     {
-        uint8_t ch = (hex >> shft) & 0xF;
+        copy /= base;
+        number_of_digits++;
+    }
 
-        if(ch > 0)
+    char result[number_of_digits];
+    put_string(itoa(value, result, base));
+}
+
+void printf(char *fmt, ...)
+{
+    va_list var; 
+    va_start(var, fmt);
+
+    for(int i = 0; fmt[i] != 0; i++)
+    {
+        // The format escape character
+        if(fmt[i] == '%')
         {
-            if(!not_leading)
-                not_leading = true;
-
-            put_char(HEX_CHARS[ch]);
+            // Make sure there is a visible character following it (except delete, hopefully that doesn't bite me in the ass)
+            if(fmt[i + 1] > 0x20)
+            {
+                switch(fmt[i + 1])
+                {
+                    case 'c':
+                        put_char(va_arg(var, uint32_t) & 0xFF);
+                        i++;
+                        break;
+                    case 'd':
+                        put_int(va_arg(var, int32_t), 10);
+                        i++;
+                        break;
+                    case 'x':
+                        put_string("0x");
+                        put_int(va_arg(var, int32_t), 16);
+                        i++;
+                        break;
+                    case 's':
+                        i++;
+                        put_string(va_arg(var, char *));
+                        break;
+                    case 'b':
+                        i++;
+                        put_string(va_arg(var, int) > 0 ? "true" : "false");
+                        break;
+                    case '<':
+                        i++;
+                        terminal.current_color = va_arg(var, int);
+                        break;
+                    case '@':
+                        i++;
+                        terminal.current_color = terminal.default_color;
+                        break;
+                    default:
+                        put_char('%');
+                        break;
+                }
+            }
+            else
+            {
+                put_char('%');
+            }
         }
         else
         {
-            if(not_leading)
-                put_char('0');
+            put_char(fmt[i]);
         }
     }
+
+    va_end(var);
+    return;
 }
 
 #endif
