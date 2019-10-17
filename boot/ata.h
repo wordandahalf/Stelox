@@ -8,30 +8,50 @@
 
 #define ATAPI_SECTOR_SIZE        2048
 
-#define PRIMARY_ATA_BUS          0x01F0
-#define SECONDARY_ATA_BUS        0x0170
+#define ATA_PRIMARY_BUS              0x01F0
+#define ATA_SECONDARY_BUS            0x0170
 
-#define PRIMARY_CONTROL_PORT     0x03F6
-#define SECONDARY_CONTROL_PORT   0x0376
+#define ATA_PRIMARY_CONTROL_PORT     0x03F6
+#define ATA_SECONDARY_CONTROL_PORT   0x0376
 
-#define DATA_REGISTER            0 // R/W
-#define ERROR_REGISTER           1 // R
-#define FEATURE_REGISTER         1 // W
-#define SECTOR_COUNT_REGISTER    2 // R/W
-#define LBA_LOW_REGISTER         3 // R/W
-#define LBA_MID_REGISTER         4 // R/W
-#define LBA_HIGH_REGISTER        5 // R/W
-#define DRIVE_SELECT_REGISTER    6 // R/W
-#define STATUS_REGISTER          7 // R
-#define COMMAND_REGISTER         7 // W
+#define ATA_DATA_REGISTER            0 // R/W
+#define ATA_ERROR_REGISTER           1 // R
+#define ATA_FEATURE_REGISTER         1 // W
+#define ATA_SECTOR_COUNT_REGISTER    2 // R/W
+#define ATA_LBA_LOW_REGISTER         3 // R/W
+#define ATA_LBA_MID_REGISTER         4 // R/W
+#define ATA_LBA_HIGH_REGISTER        5 // R/W
+#define ATA_DRIVE_SELECT_REGISTER    6 // R/W
+#define ATA_STATUS_REGISTER          7 // R
+#define ATA_COMMAND_REGISTER         7 // W
+
+#define ATA_BUSY                     0x80
+#define ATA_DRQ                      0x08
+#define ATA_ERROR                    0x01
+
+#define ATA_IDENTIFY_CMD             0xEC
+#define ATA_PACKET_CMD               0xA0
+#define ATA_IDENTIFY_PACKET_CMD      0xA1
+#define ATA_READ_PIO_CMD             0x20
+#define ATA_READ_CMD                 0xA8
 
 enum AtaDeviceType
 {
-    NOT_SCANNED = 0,
-    UNKNOWN = 1,
-    ATA_NON_PACKET = 2,
-    ATA_PACKET = 4,
+    ATA_NOT_SCANNED,
+    ATA_UNKNOWN_DRIVE,
+    ATA_PATA_DRIVE,
+    ATA_SATA_DRIVE,
+    ATA_PATAPI_DRIVE,
+    ATA_SATAPI_DRIVE,
 };
+
+typedef struct
+{
+    char serial_number[40];
+    char firmware_revision[16];
+    char model_number[80];
+    uint64_t block_count;
+} AtaDeviceInfo;
 
 typedef struct
 {
@@ -40,172 +60,279 @@ typedef struct
     bool slave;
 
     enum AtaDeviceType type;
+    AtaDeviceInfo info;
 } AtaDevice;
 
 AtaDevice scanned_devices[4];
+uint16_t device_identify_buffer[256];
 
-void write_port(AtaDevice device, uint8_t port, uint8_t val)
+AtaDevice *selected_device;
+
+/**
+ * Writes the provided value to the provided register of the currently selected ATA device
+ * Parameters:
+ *      uint8_t reg: The ATA register to write to (see the defines above)
+ *      uint8_t value: The value to write
+ **/
+void ata_write_register(uint8_t reg, uint8_t value)
 {
-    outb(device.io_base + port, val);
+    outb((*selected_device).io_base + reg, value);
 }
 
-uint8_t read_port(AtaDevice device, uint8_t port)
+/**
+* Writes the provided value to the provided register of the provided device
+* Parameters:
+*       AtaDevice device: The device to write to
+*       uint8_t reg: The register to write to
+*       uint8_t val: The value to write
+**/
+void ata_write_device_register(AtaDevice device, uint8_t reg, uint8_t value)
 {
-    return inb(device.io_base + port);
+    outb(device.io_base = reg, value);
 }
 
-void ata_pio_select_drive(AtaDevice device)
+/**
+ * Writes the provided value to the control register of the currently selected ATA device
+ * Parameters:
+ *      uint8_t value: The value to write
+ **/
+void ata_write_control(uint8_t value)
 {
-    write_port(device, DRIVE_SELECT_REGISTER, device.slave ? 0xB0 : 0xA0);
+    outb((*selected_device).control, value);
 }
 
-AtaDevice ata_pio_identify(uint16_t io_base, uint16_t control, bool slave, bool debug)
+/**
+ * Reads from the provided register of the currently selected ATA device
+ * Parameters:
+ *      uint8_t reg: The ATA register to read from (see the defines above)
+ **/
+uint8_t ata_read_register(uint8_t reg)
 {
-    AtaDevice device = {.io_base = io_base, .control = control, .slave = slave, .type = NOT_SCANNED};
+    return inb((*selected_device).io_base + reg);
+}
 
-    ata_pio_select_drive(device);
+/**
+ * Stalls for approx. 400ns, as requested by the spec
+ **/
+void ata_400ns_wait()
+{
+    ata_read_register(ATA_STATUS_REGISTER);
+    ata_read_register(ATA_STATUS_REGISTER);
+    ata_read_register(ATA_STATUS_REGISTER);
+    ata_read_register(ATA_STATUS_REGISTER);
+}
 
-    write_port(device, SECTOR_COUNT_REGISTER, 0x0);
-    write_port(device, LBA_LOW_REGISTER, 0x0);
-    write_port(device, LBA_MID_REGISTER, 0x0);
-    write_port(device, LBA_HIGH_REGISTER, 0x0);
+/**
+ * Sends a command to the selected drive
+ * Parameters:
+ *      uint8_t command: the command byte to send
+ **/
+uint8_t ata_send_command(uint8_t command)
+{
+    ata_write_register(ATA_COMMAND_REGISTER, command);
 
-    write_port(device, COMMAND_REGISTER, 0xEC);
+    uint32_t timeout = 2000000;
+    uint8_t status = 0;
 
-    uint8_t status = read_port(device, STATUS_REGISTER);
-
-    if(status != 0)
+    do
     {
-        while(read_port(device, STATUS_REGISTER) & 0x80) {}
+        status = ata_read_register(ATA_STATUS_REGISTER);
+        timeout--;
+    } while ((timeout > 0) && (status & ATA_BUSY) && !(status & ATA_ERROR));
+    
+    ata_400ns_wait();
 
-        uint8_t mid = read_port(device, LBA_MID_REGISTER);
-        uint8_t high = read_port(device, LBA_HIGH_REGISTER);
+    return ata_read_register(ATA_STATUS_REGISTER);
+}
 
-        printf("LBA high, LBA mid=%x\n", high << 8 | mid);
+/**
+ * Selects an ATA device as the drive to be operated upon
+ * 
+ * Parameters:
+ *      AtaDevice *device: the device to selected
+ *      int8_t lbaHighNibble: The highest four bits of the LBA to be selected, -1 if the next command is to be ATA_IDENTIFY
+ **/
+void ata_select_device(AtaDevice *device, int8_t lbaHighNibble)
+{
 
-        if(mid == 0x00 && high == 0x00)
+    if(lbaHighNibble == -1)
+    {
+        ata_write_device_register((*device), ATA_COMMAND_REGISTER, (*device).slave ? 0xB0 : 0xA0);
+    }
+    else
+    {
+        // The 0x40 tells ATA to use LBA for addressing
+        ata_write_device_register((*device), ATA_COMMAND_REGISTER, ((*device).slave ? 0xB0 : 0xA0) | 0x40 | (lbaHighNibble & 0xF));
+    }
+
+    ata_400ns_wait();
+
+    selected_device = device;
+}
+
+/**
+ * Disables IRQs for (all?) the currently selected device
+ **/
+void ata_disable_irqs()
+{
+    ata_write_register(ATA_COMMAND_REGISTER, 0x02);
+}
+
+/**
+ * Sends the ATAPI reset command to the currently selected device if supported 
+ **/
+void atapi_reset_device()
+{
+    if((*selected_device).type < ATA_PATAPI_DRIVE)
+        return;
+
+    ata_write_control(0x04);
+    ata_400ns_wait();
+    ata_write_control(0x02);
+
+    uint32_t timeout = 2000000;
+    uint8_t status = 0;
+    do
+    {
+        ata_400ns_wait();
+        status = ata_read_register(ATA_STATUS_REGISTER);
+        timeout--;
+    } while ((timeout > 0) && (status & ATA_BUSY) && !(status & ATA_ERROR));
+    
+    ata_select_device(selected_device, -1);
+}
+
+void atapi_identify_device()
+{
+    AtaDevice device = *selected_device;
+
+    if(device.type < ATA_PATAPI_DRIVE)
+        return;
+
+    atapi_reset_device();
+
+    ata_send_command(ATA_IDENTIFY_PACKET_CMD);
+
+    for(int i = 0; i < 256; i++)
+    {
+        device_identify_buffer[i] = inw(device.io_base + ATA_DATA_REGISTER);
+    }
+
+    printf("ATAPI Device Info Block:\n");
+    printf("Serial Number: \"%s\"\n", device_identify_buffer + 10);
+    printf("Firmware Revision: \"%s\"\n", device_identify_buffer + 23);
+    printf("Model Number: \"%s\"\n", device_identify_buffer + 27);
+}
+
+AtaDevice ata_identify_device(uint16_t io_base, uint16_t control, bool slave)
+{
+    AtaDevice device = {.io_base = io_base, .control = control, .slave = slave, .type = ATA_NOT_SCANNED, .info = { }};
+
+    ata_select_device(&device, -1);
+    
+    ata_write_register(ATA_SECTOR_COUNT_REGISTER, 0x0);
+    ata_write_register(ATA_LBA_LOW_REGISTER, 0x0);
+    ata_write_register(ATA_LBA_MID_REGISTER, 0x0);
+    ata_write_register(ATA_LBA_HIGH_REGISTER, 0x0);
+
+    uint8_t status = ata_send_command(ATA_IDENTIFY_CMD);
+
+    // If the error bit is set, then the drive is not PATA--however, we'll need to check again for non-complaint non-PATA drives
+    if(status & ATA_ERROR)
+    {
+        uint16_t signature = ata_read_register(ATA_LBA_HIGH_REGISTER) << 8 | ata_read_register(ATA_LBA_MID_REGISTER);
+
+        switch(signature)
         {
-            device.type = ATA_NON_PACKET;
+            case 0xC33C:
+                device.type = ATA_SATA_DRIVE;
+                goto atapi_ret;
+            case 0xEB14:
+                device.type = ATA_PATAPI_DRIVE;
+                goto atapi_ret;
+            case 0x9669:
+                device.type = ATA_SATAPI_DRIVE;
+                goto atapi_ret;
+            default:
+                device.type = ATA_UNKNOWN_DRIVE;
+                goto ret;
         }
-        else if(mid == 0x14 && high == 0xEB)
-        {    
-            device.type = ATA_PACKET;
-        }
-        else
+    }
+    else
+    if(status == 0x0)
+    {
+        goto ret;
+    }
+
+    // Second try for the drives that sat at the back of the classroom
+    uint16_t signature = ata_read_register(ATA_LBA_HIGH_REGISTER) << 8 | ata_read_register(ATA_LBA_MID_REGISTER);
+
+    switch(signature)
+    {
+        case 0xC33C:
+            device.type = ATA_SATA_DRIVE;
+            goto atapi_ret;
+        case 0xEB14:
+            device.type = ATA_PATAPI_DRIVE;
+            goto atapi_ret;
+        case 0x9669:
+            device.type = ATA_SATAPI_DRIVE;
+            goto atapi_ret;
+        default:
+            device.type = ATA_UNKNOWN_DRIVE;
+            goto ret;
+    }
+
+    uint32_t timeout = 2000000;
+    status = 0;
+
+    do
+    {
+        ata_400ns_wait();
+        status = ata_read_register(ATA_STATUS_REGISTER);
+        timeout--;
+    }
+    while((timeout > 0) && !(status & ATA_DRQ) && !(status & ATA_ERROR));
+
+    if(status & ATA_ERROR)
+    {
+        if(!(status & ATA_DRQ))
         {
-            device.type = UNKNOWN;
+            device.type = ATA_PATA_DRIVE;
+
+            for(int i = 0; i < 256; i++)
+            {
+                device_identify_buffer[i] = inw(device.io_base + ATA_DATA_REGISTER);
+            }
+
+            goto ret;
         }
     }
 
-    if(debug)
-        printf("ATA Device: (IO Base: %x, Control: %x, Slave: %b, Type: %x)\n", device.io_base, device.control, device.slave, device.type);
-    
+    atapi_ret:
+    atapi_identify_device();
+    return device;
+
+    ret:
     return device;
 }
 
-AtaDevice *ata_pio_find_devices()
+AtaDevice *ata_find_devices()
 {
-    scanned_devices[0] = ata_pio_identify(PRIMARY_ATA_BUS, PRIMARY_CONTROL_PORT, false, false);
-    scanned_devices[1] = ata_pio_identify(PRIMARY_ATA_BUS, PRIMARY_CONTROL_PORT, true, false);
-    scanned_devices[2] = ata_pio_identify(SECONDARY_ATA_BUS, SECONDARY_CONTROL_PORT, false, false);
-    scanned_devices[3] = ata_pio_identify(SECONDARY_ATA_BUS, SECONDARY_CONTROL_PORT, true, false);
+    scanned_devices[0] = ata_identify_device(ATA_PRIMARY_BUS, ATA_PRIMARY_CONTROL_PORT, false);
+    scanned_devices[1] = ata_identify_device(ATA_PRIMARY_BUS, ATA_PRIMARY_CONTROL_PORT, true);
+    scanned_devices[2] = ata_identify_device(ATA_SECONDARY_BUS, ATA_SECONDARY_CONTROL_PORT, false);
+    scanned_devices[3] = ata_identify_device(ATA_SECONDARY_BUS, ATA_SECONDARY_CONTROL_PORT, true);
 
     for(int i = 0; i < 4; i++)
     {
-        if(scanned_devices[i].type > 1)
-        {
+        printf("Drive %d type = %x\n", i, scanned_devices[i].type);
+
+        if(scanned_devices[i].type > ATA_UNKNOWN_DRIVE)
             return &scanned_devices[i];
-        }
     }
 
     return 0;
-}
-
-void ata_read_sectors(AtaDevice device, uint32_t lba, uint8_t sectors, uint8_t *buffer)
-{
-    if(device.type < 2)
-    {
-        put_string("Tried reading from a unknown or unscaned ATA PIO device!\n");
-        return;
-    }
-
-    if(device.type == ATA_NON_PACKET)
-    {
-        // Read using ATAPIO
-    }
-    else
-    if(device.type == ATA_PACKET)
-    {
-        //TODO: Debug
-        put_string("Reading via ATA_PACKET\n");
-
-        // Read using ATAPI (packet interface)
-        uint8_t read_command[12] = { 0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-        uint8_t status;
-
-        ata_pio_select_drive(device);
-
-        // 400ns delay
-        inb(device.control);
-        inb(device.control);
-        inb(device.control);
-        inb(device.control);
-
-        write_port(device, FEATURE_REGISTER, 0x0);
-
-        write_port(device, LBA_MID_REGISTER, ATAPI_SECTOR_SIZE & 0xFF);
-        write_port(device, LBA_HIGH_REGISTER, ATAPI_SECTOR_SIZE >> 8);
-
-        write_port(device, COMMAND_REGISTER, 0xA0);
-
-        //TODO: Debug
-        put_string("Wait #1...\n");
-
-        while ((status = read_port(device, COMMAND_REGISTER)) & 0x80) {}
-
-	    asm volatile ("pause");
-
-        //TODO: Debug
-        put_string("Wait #2...\n");
-	    while (!((status = read_port(device, COMMAND_REGISTER)) & 0x8) && !(status & 0x1)) {}
-
-	    asm volatile ("pause");
-
-        if(status & 0x1)
-            return;
-
-        read_command[9] = 1;
-        read_command[2] = (lba >> 0x18) & 0xFF;
-        read_command[3] = (lba >> 0x10) & 0xFF;
-        read_command[4] = (lba >> 0x08) & 0xFF;
-        read_command[5] = (lba >> 0x00) & 0xFF;
-
-        //TODO: Debug
-        put_string("Sending READ command...\n");
-
-        outportsm(device.io_base + DATA_REGISTER, read_command, 6);
-        // outsw (ATA_DATA (bus), (uint16_t *) read_cmd, 6);
-
-        uint16_t size = (read_port(device, LBA_HIGH_REGISTER) << 8) | read_port(device, LBA_MID_REGISTER);
-        
-        if(size != ATAPI_SECTOR_SIZE)
-        {
-            return;
-        }
-
-        //TOOD: Debug
-        put_string("Reading sector...\n");
-
-        inportsm(device.io_base + DATA_REGISTER, buffer, size / 2);
-        // insw (ATA_DATA (bus), buffer, size / 2);
-
-        while ((status = read_port(device, COMMAND_REGISTER)) & 0x88) {}
-
-	    asm volatile ("pause");
-
-        put_string("Done!\n");
-        return;
-    }
 }
 
 #endif

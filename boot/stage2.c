@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "ata.h"
 #include "terminal.h"
+#include "ata.h"
 
 int loader_main(void)
 {
@@ -10,9 +10,10 @@ int loader_main(void)
 
     printf("Welcome to %<Stelox%@ v0.0.1!\n", create_vga_color(0x3, 0x0));
 
-    AtaDevice *device = ata_pio_find_devices();
+    AtaDevice *device = ata_find_devices();
+    ata_select_device(device, -1);
 
-    if((*device).type > 0)
+    if(device)
     {
         printf("Valid ATA device found...\nType: %x\n", (*device).type);
     }
