@@ -17,9 +17,9 @@ int loader_main(void)
 
     if(device)
     {
-        printf("Valid ATA device found...\nType: %X\n", (*device).type);
+        printf("Valid ATA device found...\nType: %x\n", (*device).type);
         ata_read_sector(0, 1, KERNEL_ADDRESS);
-        printf("Done reading to %X\n", KERNEL_ADDRESS);
+        printf("Done reading to %x\n", KERNEL_ADDRESS);
     }
     else
     {
