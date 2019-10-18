@@ -50,6 +50,7 @@ typedef struct
     char serial_number[40];
     char firmware_revision[16];
     char model_number[80];
+    bool supports_48_lba;
     uint64_t block_count;
 } AtaDeviceInfo;
 
@@ -154,7 +155,6 @@ uint8_t ata_send_command(uint8_t command)
  **/
 void ata_select_device(AtaDevice *device, int8_t lbaHighNibble)
 {
-
     if(lbaHighNibble == -1)
     {
         ata_write_device_register((*device), ATA_COMMAND_REGISTER, (*device).slave ? 0xB0 : 0xA0);
@@ -202,6 +202,11 @@ void atapi_reset_device()
     ata_select_device(selected_device, -1);
 }
 
+void ata_parse_identify_data()
+{
+    // If we ever need the data returned, this will be properly implemented
+}
+
 void atapi_identify_device()
 {
     AtaDevice device = *selected_device;
@@ -218,10 +223,7 @@ void atapi_identify_device()
         device_identify_buffer[i] = inw(device.io_base + ATA_DATA_REGISTER);
     }
 
-    printf("ATAPI Device Info Block:\n");
-    printf("Serial Number: \"%s\"\n", device_identify_buffer + 10);
-    printf("Firmware Revision: \"%s\"\n", device_identify_buffer + 23);
-    printf("Model Number: \"%s\"\n", device_identify_buffer + 27);
+    ata_parse_identify_data();
 }
 
 AtaDevice ata_identify_device(uint16_t io_base, uint16_t control, bool slave)
@@ -305,6 +307,8 @@ AtaDevice ata_identify_device(uint16_t io_base, uint16_t control, bool slave)
                 device_identify_buffer[i] = inw(device.io_base + ATA_DATA_REGISTER);
             }
 
+            ata_parse_identify_data();
+
             goto ret;
         }
     }
@@ -333,6 +337,28 @@ AtaDevice *ata_find_devices()
     }
 
     return 0;
+}
+
+void ata_read_sector(uint32_t lba, uint8_t sectors, uint16_t *buffer)
+{
+    ata_select_device(selected_device, (lba >> 24) & 0x0F);
+
+    ata_write_register(ATA_SECTOR_COUNT_REGISTER, sectors);
+    ata_write_register(ATA_LBA_LOW_REGISTER, lba & 0xFF);
+    ata_write_register(ATA_LBA_MID_REGISTER, (lba >> 8) & 0xFF);
+    ata_write_register(ATA_LBA_HIGH_REGISTER, (lba >> 16) & 0xFF);
+
+    ata_send_command(ATA_READ_PIO_CMD);
+
+    for(; sectors > 1; sectors--)
+    {
+        for(int i = 0; i < 256; i++)
+        {
+            buffer[i] = inw((*selected_device).io_base + ATA_DATA_REGISTER);
+        }
+
+        ata_400ns_wait();
+    }
 }
 
 #endif

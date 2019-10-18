@@ -4,6 +4,8 @@
 #include "terminal.h"
 #include "ata.h"
 
+uint16_t *KERNEL_ADDRESS = (uint16_t*)0x7E00;
+
 int loader_main(void)
 {
     terminal_init();
@@ -15,7 +17,9 @@ int loader_main(void)
 
     if(device)
     {
-        printf("Valid ATA device found...\nType: %x\n", (*device).type);
+        printf("Valid ATA device found...\nType: %X\n", (*device).type);
+        ata_read_sector(0, 1, KERNEL_ADDRESS);
+        printf("Done reading to %X\n", KERNEL_ADDRESS);
     }
     else
     {
