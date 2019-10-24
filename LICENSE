@@ -1,6 +1,9 @@
+All files in this repository except those found in kernel/include/efi are available under these terms.
+Those files found in kernel/include/efi are provided with their proper license.
+
 MIT License
 
-Copyright (c) 2018 Ryan J.
+Copyright (c) 2018 Ryan Jones
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

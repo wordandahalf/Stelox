@@ -1,10 +1,6 @@
 .vscode/
-
-logfile.txt
+bin/
+fatbase/
+iso/
+*.fat
 *.iso
-*.elf
-*.img
-*.bin
-*.o
-*.flp
-bochs.log
