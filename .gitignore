@@ -2,5 +2,8 @@
 bin/
 fatbase/
 iso/
+utils/
+*.so
+*.o
 *.fat
 *.iso
