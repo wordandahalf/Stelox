@@ -5,10 +5,10 @@ UEFI_IMAGE		= boot/bootx64.so
 OBJS            = boot/efi.o
 TARGET          = fatbase/efi/boot/bootx64.efi
 
-EFIINC          = utils/gnuefi/include
+EFIINC          = utils/gnu-efi/inc
 EFIINCS         = -I$(EFIINC) -I$(EFIINC)/$(ARCH) -I$(EFIINC)/protocol
-LIB             = utils/gnuefi/lib
-EFILIB          = utils/gnuefi/efi-lib
+LIB             = utils/gnue-fi/lib
+EFILIB          = utils/gnu-efi/efi-lib
 EFI_CRT_OBJS    = $(EFILIB)/crt0-efi-$(ARCH).o
 EFI_LDS         = $(EFILIB)/elf_$(ARCH)_efi.lds
 

@@ -1,9 +1,12 @@
 .vscode/
-bin/
+
 fatbase/
 iso/
-utils/
-*.so
-*.o
+
+utils/gnu-efi/
+utils/OVMF/
+
+boot/*.so
+boot/*.o
 *.fat
 *.iso
