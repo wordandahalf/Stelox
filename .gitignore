@@ -6,7 +6,7 @@ iso/
 utils/gnu-efi/
 utils/OVMF/
 
-boot/*.so
-boot/*.o
+*.so
+*.o
 *.fat
 *.iso
