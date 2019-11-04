@@ -1,8 +1,5 @@
 .vscode/
-
-fatbase/
-iso/
-
+image/*
 utils/gnu-efi/
 utils/OVMF/
 
