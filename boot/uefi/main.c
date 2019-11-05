@@ -1,45 +1,33 @@
 #include <efi.h>
 #include <efilib.h>
 
-void check_efi_error(EFI_STATUS status, const CHAR16 *error_msg)
-{
-    if(EFI_ERROR(status))
-    {
-        Print(L"[%EERROR%N] %H%s%N\r\n", error_msg);
-    }
-}
+#include "io.h"
 
-void log_msg(const CHAR16 *msg)
-{
-    Print(L"%H%s%N\r\n", msg);
-}
-
-void log_info(const CHAR16 *msg)
-{
-    Print(L"%H[%BINFO%H] %s%N\r\n", msg);
-}
+EFI_SYSTEM_TABLE *ST = NULL;
 
 EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
-    InitializeLib(ImageHandle, SystemTable);
+    ST = SystemTable;
+    InitializeLib(ImageHandle, ST);
 
     EFI_STATUS status;
 
-    status = SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
+    status = ST->ConOut->ClearScreen(ST->ConOut);
     check_efi_error(status, L"Failed to clear the screen");
 
     log_info(L"Stelox-UEFI v0.0.1 loaded!");
 
     UINT64 timeout_seconds = 10;
-    EFI_INPUT_KEY key = { 0 };
+
+    EFI_INPUT_KEY key;
 
     Print(L"%HContinuing in %llu seconds...\n\rPress any key to stop the timer, press 'd' to enter debug mode, or press 'c' to immediately boot into the selected OS.%N\r\n", timeout_seconds);
 
     while(timeout_seconds)
     {
-        status = WaitForSingleEvent(SystemTable->ConIn->WaitForKey, 10000000);
+        status = WaitForSingleEvent(ST->ConIn->WaitForKey, 10000000);
         if(status != EFI_TIMEOUT)
         {
-            status = SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &key);
+            status = ST->ConIn->ReadKeyStroke(ST->ConIn, &key);
             check_efi_error(status, L"Failed to read from the input buffer");
 
             if(key.UnicodeChar == L'd')
