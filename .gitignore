@@ -5,5 +5,7 @@ utils/OVMF/
 
 *.so
 *.o
+
+*.elf
 *.fat
 *.iso
