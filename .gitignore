@@ -1,10 +1,13 @@
 .vscode/
 
-logfile.txt
-*.iso
+build/*
+utils/*/
+
+*.bin
 *.elf
 *.img
-*.bin
 *.o
-*.flp
+*.so
+
+logfile.txt
 bochs.log
