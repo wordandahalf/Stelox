@@ -15,28 +15,10 @@ LD						= ld
 OBJCOPY					= objcopy
 NASM					= nasm
 
-# BIOS (x86) build variables
-
-BIOS_BOOT_FOLDER 		= $(BASE_BOOT_FOLDER)/i386
-BIOS_INCLUDE_FOLDER 	= $(BIOS_BOOT_FOLDER)/include
-
-BIOS_ASM_SOURCES 		= $(BIOS_BOOT_FOLDER)/stage0.asm $(BIOS_BOOT_FOLDER)/stage1.asm
-BIOS_C_SOURCES 			= $(BIOS_BOOT_FOLDER)/stage2.c
-BIOS_BOOT_OBJECTS 		= $(BIOS_ASM_SOURCES:.asm=.bin)
-BIOS_BOOT_OBJECTS 		+= $(BIOS_C_SOURCES:.c=.o)
-
-BIOS_LINKER				= $(BIOS_BOOT_FOLDER)/linker.ld
-
-BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
-
-# BIOS (x86) build command variables
-
-BIOS_NASM_FLAGS			= -f elf32
-BIOS_CFLAGS				= -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra
-
 # UEFI (x86-64) build variables
 
 UEFI_BOOTLOADER_FOLDER	= $(BASE_BOOT_FOLDER)/x86_64
+UEFI_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/x86_64/boot
 UEFI_INCLUDE_FOLDER 	= $(UEFI_BOOTLOADER_FOLDER)/include
 
 UEFI_FAT_FOLDER			= $(BASE_IMAGE_FOLDER)/fat
@@ -46,7 +28,11 @@ UEFI_C_SOURCES			= $(UEFI_BOOTLOADER_FOLDER)/main.c
 
 UEFI_BOOT_OBJECTS		= $(UEFI_C_SOURCES:.c=.o)
 
-UEFI_ELF_OBJECT			= $(UEFI_BOOTLOADER_FOLDER)/bootx64.so
+# Objects are put in the build/ folder
+
+UEFI_BOOT_OBJECTS		:= $(subst $(UEFI_BOOTLOADER_FOLDER),$(UEFI_BUILD_FOLDER),$(UEFI_BOOT_OBJECTS))
+
+UEFI_ELF_OBJECT			= $(UEFI_BUILD_FOLDER)/bootx64.so
 
 UEFI_BOOT_TARGET		= $(UEFI_BOOT_FOLDER)/bootx64.efi
 UEFI_BOOT_FAT			= $(BASE_IMAGE_FOLDER)/efi.fat
@@ -71,6 +57,30 @@ UEFI_LDFLAGS     		:= -nostdlib -znocombreloc -T $(GNU_EFI_ELF_LDS) -shared -Bsy
 
 UEFI_OBJCOPY_FLAGS		:= -j .text -j .sdata -j .data -j .dynamic -j .dynsym  -j .rel -j .rela -j .reloc --target=efi-app-x86_64
 
+# BIOS (x86) build variables
+
+BIOS_BOOTLOADER_FOLDER 	= $(BASE_BOOT_FOLDER)/i386
+BIOS_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/i386/boot
+BIOS_INCLUDE_FOLDER 	= $(BIOS_BOOTLOADER_FOLDER)/include
+
+BIOS_ASM_SOURCES 		= $(BIOS_BOOTLOADER_FOLDER)/stage0.asm $(BIOS_BOOTLOADER_FOLDER)/stage1.asm
+BIOS_C_SOURCES 			= $(BIOS_BOOTLOADER_FOLDER)/stage2.c
+BIOS_BOOT_OBJECTS 		= $(BIOS_ASM_SOURCES:.asm=.bin)
+BIOS_BOOT_OBJECTS 		+= $(BIOS_C_SOURCES:.c=.o)
+
+# Objects are put in the build/ folder
+
+BIOS_BOOT_OBJECTS		:= $(subst $(BIOS_BOOTLOADER_FOLDER),$(BIOS_BUILD_FOLDER),$(BIOS_BOOT_OBJECTS))
+
+BIOS_LINKER				= $(BIOS_BOOTLOADER_FOLDER)/linker.ld
+
+BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
+
+# BIOS (x86) build command variables
+
+BIOS_NASM_FLAGS			= -f elf32
+BIOS_CFLAGS				= -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+
 ifdef ARCH
 bootloader: clean bootloader-$(ARCH)
 clean: clean-$(ARCH)
@@ -83,13 +93,14 @@ endif
 
 clean-x86_64: $(GNU_EFI_FOLDER)
 	-@echo "Cleaning UEFI bootloader files..."
-	-@mkdir -p $(UEFI_BOOT_IMAGE_FOLDER) $(UEFI_BOOT_FOLDER) $(UEFI_FAT_FOLDER)
+	-@mkdir -p $(UEFI_BOOT_IMAGE_FOLDER) $(UEFI_BOOT_FOLDER) $(UEFI_FAT_FOLDER) $(UEFI_BUILD_FOLDER)
 	-@rm -rf $(UEFI_BOOT_OBJECTS) $(UEFI_ELF_OBJECT) $(UEFI_BOOT_TARGET) $(UEFI_BOOT_FAT)
 
 $(GNU_EFI_FOLDER): $(GNU_EFI_SCRIPT)
-	@CD $(BASE_UTILS_FOLDER)
-	$(GNU_EFI_SCRIPT)
-	@CD $(BASE_BOOT_FOLDER)
+	@echo "GNU-EFI was not found, downloading..."
+	@cd $(BASE_UTILS_FOLDER) && \
+	$(GNU_EFI_SCRIPT) && \
+	cd $(BASE_BOOT_FOLDER)
 
 bootloader-x86_64: $(UEFI_BOOT_TARGET)
 	-@echo "Creating $(UEFI_BOOT_FAT)..."
@@ -103,7 +114,7 @@ $(UEFI_BOOT_TARGET): $(UEFI_ELF_OBJECT)
 $(UEFI_ELF_OBJECT): $(UEFI_BOOT_OBJECTS)
 	@$(LD) $(UEFI_LDFLAGS) $^ -o $@ -lefi -lgnuefi
 
-$(UEFI_BOOTLOADER_FOLDER)/%.o: $(UEFI_BOOTLOADER_FOLDER)/%.c
+$(UEFI_BUILD_FOLDER)/%.o: $(UEFI_BOOTLOADER_FOLDER)/%.c
 	@echo "Compiling $< to $@"
 	@$(GCC) -c -o $@ $(UEFI_CFLAGS) $<
 
@@ -111,7 +122,7 @@ $(UEFI_BOOTLOADER_FOLDER)/%.o: $(UEFI_BOOTLOADER_FOLDER)/%.c
 
 clean-i386:
 	-@echo "Cleaning BIOS bootloader files..."
-	-@mkdir -p $(BOOT_IMAGE_FOLDER) $(BIOS_BOOT_IMAGE_FOLDER) $(BIOS_BOOT_FOLDER)
+	-@mkdir -p $(BOOT_IMAGE_FOLDER) $(BIOS_BOOT_IMAGE_FOLDER) $(BIOS_BOOTLOADER_FOLDER) $(BIOS_BUILD_FOLDER)
 	-@rm -rf $(BIOS_BOOT_OBJECTS) $(BIOS_BOOT_IMAGE)
 
 bootloader-i386: $(BIOS_BOOT_IMAGE)
@@ -120,11 +131,11 @@ $(BIOS_BOOT_IMAGE): $(BIOS_BOOT_OBJECTS)
 	-@echo "Creating $(BIOS_BOOT_IMAGE)..."
 	@$(LD) -T $(BIOS_LINKER) -o $(BIOS_BOOT_IMAGE) $(BIOS_BOOT_OBJECTS)
 
-$(BIOS_BOOT_FOLDER)/%.o: $(BIOS_BOOT_FOLDER)/%.c
+$(BIOS_BUILD_FOLDER)/%.o: $(BIOS_BOOTLOADER_FOLDER)/%.c
 	@echo "Compiling $< to $@"
 	@$(GCC) -c $< -o $@ $(BIOS_CFLAGS)
 
-$(BIOS_BOOT_FOLDER)/%.bin: $(BIOS_BOOT_FOLDER)/%.asm
+$(BIOS_BUILD_FOLDER)/%.bin: $(BIOS_BOOTLOADER_FOLDER)/%.asm
 	@echo "Compiling $< to $@"
 	@# NASM requires that the include folder end with a '/' for whatever reason
 	@$(NASM) $(BIOS_NASM_FLAGS) $< -o $@ -I$(BIOS_INCLUDE_FOLDER)/
