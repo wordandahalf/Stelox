@@ -9,5 +9,7 @@ utils/*/
 *.o
 *.so
 
+*.bxrc
+
 logfile.txt
 bochs.log
