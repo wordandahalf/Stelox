@@ -39,10 +39,31 @@ ifneq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES)),)
 run: $(ARCH)
 	$(QEMU_$(ARCH)) $(QEMU_$(ARCH)_FLAGS)
 else
+ifeq ($(ARCH),)
+run: all
+else
 run:
 	@echo "Unsupported architecture $(ARCH)..."
 	@echo "Supported architectures: i386, x86_64"
 endif
+endif
+
+all: clean
+	@make -C boot/ -f Makefile bootloader ARCH=i386
+	@make -C boot/ -f Makefile bootloader ARCH=x86_64
+	@#make -C kernel/ -f Makefile kernel ARCH=i386
+
+	@xorriso -as mkisofs \
+		-c boot/boot.cat \
+		-b boot/boot.img \
+		-no-emul-boot -boot-load-size 10 \
+		-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+		-eltorito-alt-boot \
+		-e boot/efi/efi.fat \
+		-no-emul-boot -isohybrid-gpt-basdat \
+		-o $(STELOX_ISO) \
+		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) boot/efi/efi.fat=$(UEFI_BOOT_FAT)
+		@# TODO: kernel/kernel.elf=$(KERNEL_IMAGE)
 
 
 x86_64: $(OVMF)
