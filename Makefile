@@ -29,6 +29,10 @@ QEMU_x86_64_FLAGS		= -drive if=pflash,format=raw,file=$(OVMF) -cdrom $(STELOX_IS
 QEMU_i386				= qemu-system-i386
 QEMU_i386_FLAGS			= -d guest_errors -cdrom $(STELOX_ISO)
 
+# ISO-generation variables
+
+HYBRID_MBR_BIN			= /usr/lib/ISOLINUX/isohdpfx.bin
+
 clean:
 	@make -C boot/ -f Makefile clean
 	@#make -C kernel/ -f Makefile clean
@@ -48,7 +52,7 @@ run:
 endif
 endif
 
-all: clean
+all: $(HYBRID_MBR_BIN) clean
 	@make -C boot/ -f Makefile bootloader ARCH=i386
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
 	@#make -C kernel/ -f Makefile kernel ARCH=i386
@@ -57,7 +61,7 @@ all: clean
 		-c boot/boot.cat \
 		-b boot/boot.img \
 		-no-emul-boot -boot-load-size 10 \
-		-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+		-isohybrid-mbr $(HYBRID_MBR_BIN) \
 		-eltorito-alt-boot \
 		-e boot/efi/efi.fat \
 		-no-emul-boot -isohybrid-gpt-basdat \
@@ -79,7 +83,7 @@ i386:
 	@#make -C kernel/ -f Makefile kernel ARCH=i386
 
 	@xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.img -no-emul-boot \
-		-boot-load-size 10 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
+		-boot-load-size 12 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE)
 		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
 
@@ -87,3 +91,6 @@ $(OVMF):
 	@echo "OVMF was not found, downloading..."
 	@mkdir -p $(OVMF_FOLDER)
 	@wget $(OVMF_URL) -O $(OVMF) -qq
+
+$(HYBRID_MBR_BIN):
+	$(error "$(HYBRID_MBR_BIN) not found, please try installing ISOLINUX")
