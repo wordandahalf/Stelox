@@ -1,11 +1,10 @@
 #ifndef __TERMINAL_H_
 #define __TERMINAL_H_
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdarg.h>
-
-#include "io.h"
+typedef enum {
+    TERMINAL_INFO_LOG,
+    TERMINAL_ERROR_LOG,
+} TerminalLogType;
 
 typedef struct {
     uint16_t *buffer;
@@ -32,6 +31,8 @@ Terminal terminal = {
     .width = 80,
     .height = 25,
 };
+
+char itoa_buffer[256];
 
 inline uint8_t create_vga_color(uint8_t foreground, uint8_t background)
 {
@@ -90,22 +91,41 @@ void put_string(char *str)
         put_char(str[i]);
 }
 
-char *itoa(int32_t value, char *result, uint8_t base)
+char *itoa(int32_t value, bool is_signed, uint8_t base, char *result)
 {
     if(base < 2 || base > 36) { *result = '\0'; return result; }
 
     char *ptr = result, *ptr1 = result, tmp_char;
-    int32_t tmp_value;
 
-    do
+    if(is_signed)
     {
-        tmp_value = value;
-        value /= base;
-        *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - value * base)];
-    } while(value);
+        int32_t tmp_value;
 
-    if(tmp_value < 0) *ptr++ = '-';
+        do
+        {
+            tmp_value = value;
+            value /= base;
+            *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - value * base)];
+        } while(value && ((ptr - result) < 256)); // We don't want a buffer overflow--the buffer is 256 chars long
+
+        if(tmp_value < 0) *ptr++ = '-';
+    }
+    else
+    {
+        uint32_t unsigned_value = value & 0xFFFFFFFF;
+        uint32_t tmp_value;
+
+        do
+        {
+            tmp_value = unsigned_value;
+            unsigned_value /= base;
+            *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - unsigned_value * base)];
+        } while(unsigned_value && ((ptr - result) < 256)); // We don't want a buffer overflow--the buffer is 256 chars long
+    }
+    
     *ptr-- = '\0';
+
+    // This flips the chars; the previous few lines converts the int from most-significant digit to least
     while(ptr1 < ptr)
     {
         tmp_char = *ptr;
@@ -116,19 +136,9 @@ char *itoa(int32_t value, char *result, uint8_t base)
     return result;
 }
 
-void put_int(int32_t value, uint8_t base)
+void put_int(int32_t value, bool is_signed, uint8_t base)
 {
-    uint8_t number_of_digits = 0;
-    uint32_t copy = value;
-
-    while(copy > 0)
-    {
-        copy /= base;
-        number_of_digits++;
-    }
-
-    char result[number_of_digits];
-    put_string(itoa(value, result, base));
+    put_string(itoa(value, is_signed, base, itoa_buffer));
 }
 
 void printf(char *fmt, ...)
@@ -151,12 +161,16 @@ void printf(char *fmt, ...)
                         i++;
                         break;
                     case 'd':
-                        put_int(va_arg(var, int32_t), 10);
+                        put_int(va_arg(var, int32_t), true, 10);
+                        i++;
+                        break;
+                    case 'u':
+                        put_int(va_arg(var, int32_t), false, 10);
                         i++;
                         break;
                     case 'x':
                         put_string("0x");
-                        put_int(va_arg(var, int32_t), 16);
+                        put_int(va_arg(var, int32_t), false, 16);
                         i++;
                         break;
                     case 's':
@@ -192,7 +206,33 @@ void printf(char *fmt, ...)
     }
 
     va_end(var);
-    return;
+}
+
+void log(char *fmt, TerminalLogType type, ...)
+{
+    va_list var; 
+
+    uint8_t color = 0x0;
+    char    *text = "";
+    
+    switch(type)
+    {
+        case TERMINAL_INFO_LOG:
+            color = 0xD;
+            text = "INFO";
+            break;
+        case TERMINAL_ERROR_LOG:
+            color = 0x4;
+            text = "ERR ";
+    }
+    
+    printf("[%<%s%@] ", create_vga_color(color, 0x0), text);
+
+    va_start(var, type);
+    printf(fmt, var);
+    va_end(var);
+
+    put_char('\n');
 }
 
 #endif
