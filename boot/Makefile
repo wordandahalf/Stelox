@@ -79,7 +79,7 @@ BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
 # BIOS (x86) build command variables
 
 BIOS_NASM_FLAGS			= -f elf32
-BIOS_CFLAGS				= -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+BIOS_CFLAGS				= -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
 
 ifdef ARCH
 bootloader: clean bootloader-$(ARCH)
