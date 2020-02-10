@@ -2,7 +2,7 @@ BASE_BUILD_FOLDER		= build
 BASE_UTILS_FOLDER		= utils
 BASE_IMAGE_FOLDER		= $(BASE_BUILD_FOLDER)/images
 
-SUPPORTED_ARCHITECTURES	= i386 x86_64
+SUPPORTED_ARCHITECTURES	= i386, x86_64, x86-multi
 
 # General build variables
 
@@ -33,26 +33,23 @@ QEMU_i386_FLAGS			= -d guest_errors -cdrom $(STELOX_ISO)
 
 HYBRID_MBR_BIN			= /usr/lib/ISOLINUX/isohdpfx.bin
 
-clean:
-	@make -C boot/ -f Makefile clean
-	@#make -C kernel/ -f Makefile clean
-
-	@rm -rf $(STELOX_ISO)
-
-ifneq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES)),)
+ifneq ($(filter $(ARCH),$(SUPPORTED_ARCHITECTURES:,=)),)
+stub: $(ARCH)
 run: $(ARCH)
 	$(QEMU_$(ARCH)) $(QEMU_$(ARCH)_FLAGS)
 else
-ifeq ($(ARCH),)
-run: all
+ifndef ARCH
+stub:
+	@echo "Please provide a supported architecture."
+	@echo "Supported architectures: $(SUPPORTED_ARCHITECTURES)"
 else
-run:
-	@echo "Unsupported architecture $(ARCH)..."
-	@echo "Supported architectures: i386, x86_64"
+stub:
+	@echo "Unsupported architecture '$(ARCH)'..."
+	@echo "Supported architectures: $(SUPPORTED_ARCHITECTURES)"
 endif
 endif
 
-all: $(HYBRID_MBR_BIN) clean
+x86-multi: $(HYBRID_MBR_BIN)
 	@make -C boot/ -f Makefile bootloader ARCH=i386
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
 	@#make -C kernel/ -f Makefile kernel ARCH=i386
@@ -69,6 +66,8 @@ all: $(HYBRID_MBR_BIN) clean
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) boot/efi/efi.fat=$(UEFI_BOOT_FAT)
 		@# TODO: kernel/kernel.elf=$(KERNEL_IMAGE)
 
+$(HYBRID_MBR_BIN):
+	$(error "$(HYBRID_MBR_BIN) not found, please instal ISOLINUX")
 
 x86_64: $(OVMF)
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
@@ -78,6 +77,11 @@ x86_64: $(OVMF)
 		-graft-points boot/efi/efi.fat=$(UEFI_BOOT_FAT)
 		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
 
+$(OVMF):
+	@echo "OVMF was not found, downloading..."
+	@mkdir -p $(OVMF_FOLDER)
+	@wget $(OVMF_URL) -O $(OVMF) -qq
+
 i386:
 	@make -C boot/ -f Makefile bootloader ARCH=i386
 	@#make -C kernel/ -f Makefile kernel ARCH=i386
@@ -86,11 +90,3 @@ i386:
 		-boot-load-size 12 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE)
 		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
-
-$(OVMF):
-	@echo "OVMF was not found, downloading..."
-	@mkdir -p $(OVMF_FOLDER)
-	@wget $(OVMF_URL) -O $(OVMF) -qq
-
-$(HYBRID_MBR_BIN):
-	$(error "$(HYBRID_MBR_BIN) not found, please try installing ISOLINUX")
