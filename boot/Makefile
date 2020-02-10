@@ -10,9 +10,21 @@ BASE_IMAGE_FOLDER		= $(BASE_BUILD_FOLDER)/images
 
 # General command variables
 
-GCC						= gcc
-LD						= ld
-OBJCOPY					= objcopy
+ifdef CROSS
+GCC_i386				= $(CROSS)-gcc
+LD_i386					= $(CROSS)-ld
+OBJCOPY_i386			= $(CROSS)-objcopy
+LIBGCC_i386				= $(shell $(GCC_i386) -print-libgcc-file-name)
+else
+GCC_i386				= gcc
+LD_i386					= ld
+OBJCOPY_i386			= objcopy
+endif
+
+GCC_x86_64				= gcc
+LD_x86_64				= ld
+OBJCOPY_x86_64			= objcopy
+
 NASM					= nasm
 
 # UEFI (x86-64) build variables
@@ -79,14 +91,26 @@ BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
 # BIOS (x86) build command variables
 
 BIOS_NASM_FLAGS			= -f elf32
-BIOS_CFLAGS				= -m32 -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
+BIOS_CFLAGS				= -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
 
 ifdef ARCH
+ifneq ($(ARCH),$(shell arch))
+ifdef CROSS
+bootloader: clean-$(ARCH) bootloader-$(ARCH)
+else
+bootloader:
+	$(error A cross compiler is required for target '$(ARCH)')
+clean: clean-$(ARCH)
+endif
+else
 bootloader: clean bootloader-$(ARCH)
 clean: clean-$(ARCH)
+endif
 else
-bootloader: bootloader-x86_64 bootloader-i386
-clean: clean-x86_64 clean-i386
+bootloader:
+	$(error No target architecture was passed)
+clean:
+	$(error No target architecture was passed)
 endif
 
 # UEFI build commands
@@ -109,14 +133,14 @@ bootloader-x86_64: $(UEFI_BOOT_TARGET)
 	@mcopy -si $(UEFI_BOOT_FAT) $(UEFI_FAT_FOLDER)/* ::/
 
 $(UEFI_BOOT_TARGET): $(UEFI_ELF_OBJECT)
-	@$(OBJCOPY) $(UEFI_OBJCOPY_FLAGS) $^ $@
+	@$(OBJCOPY_$(ARCH)) $(UEFI_OBJCOPY_FLAGS) $^ $@
 
 $(UEFI_ELF_OBJECT): $(UEFI_BOOT_OBJECTS)
-	@$(LD) $(UEFI_LDFLAGS) $^ -o $@ -lefi -lgnuefi
+	@$(LD_$(ARCH)) $(UEFI_LDFLAGS) $^ -o $@ -lefi -lgnuefi
 
 $(UEFI_BUILD_FOLDER)/%.o: $(UEFI_BOOTLOADER_FOLDER)/%.c
 	@echo "Compiling $< to $@"
-	@$(GCC) -c -o $@ $(UEFI_CFLAGS) $<
+	@$(GCC_$(ARCH)) -c -o $@ $(UEFI_CFLAGS) $<
 
 # BIOS build commands
 
@@ -129,11 +153,11 @@ bootloader-i386: $(BIOS_BOOT_IMAGE)
 
 $(BIOS_BOOT_IMAGE): $(BIOS_BOOT_OBJECTS)
 	-@echo "Creating $(BIOS_BOOT_IMAGE)..."
-	@$(LD) -T $(BIOS_LINKER) -o $(BIOS_BOOT_IMAGE) $(BIOS_BOOT_OBJECTS)
+	@$(LD_$(ARCH)) -T $(BIOS_LINKER) -o $(BIOS_BOOT_IMAGE) $(BIOS_BOOT_OBJECTS) $(LIBGCC_$(ARCH))
 
 $(BIOS_BUILD_FOLDER)/%.o: $(BIOS_BOOTLOADER_FOLDER)/%.c
 	@echo "Compiling $< to $@"
-	@$(GCC) -c $< -o $@ $(BIOS_CFLAGS)
+	@$(GCC_$(ARCH)) -c $< -o $@ $(BIOS_CFLAGS)
 
 $(BIOS_BUILD_FOLDER)/%.bin: $(BIOS_BOOTLOADER_FOLDER)/%.asm
 	@echo "Compiling $< to $@"

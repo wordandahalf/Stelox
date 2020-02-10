@@ -50,9 +50,9 @@ endif
 endif
 
 x86-multi: $(HYBRID_MBR_BIN)
-	@make -C boot/ -f Makefile bootloader ARCH=i386
+	@make -C boot/ -f Makefile bootloader ARCH=i386 CROSS=$(CROSS)
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
-	@#make -C kernel/ -f Makefile kernel ARCH=i386
+	@#make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
 
 	@xorriso -as mkisofs \
 		-c boot/boot.cat \
@@ -83,10 +83,10 @@ $(OVMF):
 	@wget $(OVMF_URL) -O $(OVMF) -qq
 
 i386:
-	@make -C boot/ -f Makefile bootloader ARCH=i386
-	@#make -C kernel/ -f Makefile kernel ARCH=i386
+	@make -C boot/ -f Makefile bootloader ARCH=i386 CROSS=$(CROSS)
+	@#make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
 
 	@xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.img -no-emul-boot \
-		-boot-load-size 12 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
+		-boot-load-size 16 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE)
 		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
