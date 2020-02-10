@@ -15,6 +15,8 @@ stage1:
     mov     si, loading_message
     call    print_string
 
+    call    do_e820
+
     call    enable_a20
     cmp     ax, 0x1                     ; The sub enable_a20 sets ax to 1 iff it successfully enabled the A20
     je      enter_protected_mode
