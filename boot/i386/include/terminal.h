@@ -91,7 +91,7 @@ void put_string(char *str)
         put_char(str[i]);
 }
 
-char *itoa(int32_t value, bool is_signed, uint8_t base, char *result)
+char *itoa(int64_t value, bool is_signed, uint8_t base, char *result)
 {
     if(base < 2 || base > 36) { *result = '\0'; return result; }
 
@@ -99,7 +99,7 @@ char *itoa(int32_t value, bool is_signed, uint8_t base, char *result)
 
     if(is_signed)
     {
-        int32_t tmp_value;
+        int64_t tmp_value;
 
         do
         {
@@ -112,8 +112,8 @@ char *itoa(int32_t value, bool is_signed, uint8_t base, char *result)
     }
     else
     {
-        uint32_t unsigned_value = value & 0xFFFFFFFF;
-        uint32_t tmp_value;
+        uint64_t unsigned_value = value & 0xFFFFFFFF;
+        uint64_t tmp_value;
 
         do
         {
@@ -136,7 +136,7 @@ char *itoa(int32_t value, bool is_signed, uint8_t base, char *result)
     return result;
 }
 
-void put_int(int32_t value, bool is_signed, uint8_t base)
+void put_int(int64_t value, bool is_signed, uint8_t base)
 {
     put_string(itoa(value, is_signed, base, itoa_buffer));
 }
@@ -157,20 +157,20 @@ void printf(char *fmt, ...)
                 switch(fmt[i + 1])
                 {
                     case 'c':
-                        put_char(va_arg(var, uint32_t) & 0xFF);
+                        put_char(va_arg(var, uint64_t) & 0xFF);
                         i++;
                         break;
                     case 'd':
-                        put_int(va_arg(var, int32_t), true, 10);
+                        put_int(va_arg(var, int64_t), true, 10);
                         i++;
                         break;
                     case 'u':
-                        put_int(va_arg(var, int32_t), false, 10);
+                        put_int(va_arg(var, int64_t), false, 10);
                         i++;
                         break;
                     case 'x':
                         put_string("0x");
-                        put_int(va_arg(var, int32_t), false, 16);
+                        put_int(va_arg(var, int64_t), false, 16);
                         i++;
                         break;
                     case 's':
