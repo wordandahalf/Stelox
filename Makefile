@@ -57,7 +57,7 @@ x86-multi: $(HYBRID_MBR_BIN)
 	@xorriso -as mkisofs \
 		-c boot/boot.cat \
 		-b boot/boot.img \
-		-no-emul-boot -boot-load-size 10 \
+		-no-emul-boot -boot-load-size 16 \
 		-isohybrid-mbr $(HYBRID_MBR_BIN) \
 		-eltorito-alt-boot \
 		-e boot/efi/efi.fat \
