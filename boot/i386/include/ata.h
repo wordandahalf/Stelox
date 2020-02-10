@@ -58,7 +58,6 @@ typedef enum
 {
     ATA_UNSCANNED_DRIVE,
     ATA_NO_DRIVE,
-    ATA_UNKNOWN,
     ATA_PATA_DRIVE,
     ATA_SATA_DRIVE,
     ATA_PATAPI_DRIVE,
@@ -142,20 +141,13 @@ static void ata_software_reset(AtaDevice *device)
     outb(device->control, 0x0);
 }
 
-static int ata_status_wait(AtaDevice *device, int timeout)
+static int ata_status_wait(AtaDevice *device)
 {
     // Waits until the BSY bit is cleared
 
     uint8_t status = 0;
 
-    if(timeout)
-    {
-        while(((status = inb(device->io_base + ATA_REG_STATUS)) & ATA_STATUS_BSY) && timeout) timeout--;
-    }
-    else
-    {
-        while((status = inb(device->io_base + ATA_REG_STATUS)) & ATA_STATUS_BSY);
-    }
+    while((status = inb(device->io_base + ATA_REG_STATUS)) & ATA_STATUS_BSY);
 
     return status;
 }
@@ -232,7 +224,7 @@ static void atapi_init_device(AtaDevice *device)
     ata_400ns_delay(device);
 
     ata_400ns_delay(device);
-    ata_status_wait(device, -1);
+    ata_status_wait(device);
 
     uint16_t *identity_buffer = (uint16_t *)&device->identity;
 
@@ -242,15 +234,18 @@ static void atapi_init_device(AtaDevice *device)
     atapi_detect_capacity(device);
 }
 
-static void ata_detect_device(AtaDevice *device)
+/*
+*   Detects the type of drive, initi
+*/
+static int ata_detect_device(AtaDevice *device)
 {
     if(device->type != ATA_UNSCANNED_DRIVE)
-        return;
+        return -1;
 
     ata_software_reset(device);
     ata_400ns_delay(device);
     ata_select_device(device);
-    ata_status_wait(device, 10000);
+    ata_status_wait(device);
 
     uint16_t signature = inb(device->io_base + ATA_REG_LBA_MID) | (inb(device->io_base + ATA_REG_LBA_HIGH) << 8);
 
@@ -258,7 +253,7 @@ static void ata_detect_device(AtaDevice *device)
     {
         case 0xFFFF:
             device->type = ATA_NO_DRIVE;
-            break;
+            return 0;
         case 0x0000:
             device->type = ATA_PATA_DRIVE;
             break;
@@ -277,15 +272,31 @@ static void ata_detect_device(AtaDevice *device)
     {
         atapi_init_device(device);
     }
+
+    return 1;
 }
 
-// Calls ata_detect_device() for each of the four drives
-static void ata_detect_devices()
+/*
+*   Calls ata_detect_device() for each of the four ATA devices
+*   It returns a pointer to the first device found with the provided type, or NULL
+*/
+static AtaDevice *ata_detect_devices(AtaDriveType type)
 {
     ata_detect_device(&ata_primary_master);
     ata_detect_device(&ata_primary_slave);
     ata_detect_device(&ata_secondary_master);
     ata_detect_device(&ata_secondary_slave);
+
+    if(ata_primary_master.type == type)
+        return &ata_primary_master;
+    if(ata_primary_slave.type == type)
+        return &ata_primary_slave;
+    if(ata_secondary_master.type == type)
+        return &ata_secondary_master;
+    if(ata_secondary_slave.type == type)
+        return &ata_secondary_slave;
+
+    return NULL;
 }
 
 static void atapi_read_sector(AtaDevice *device, uint32_t lba, uint8_t sectors, uint8_t *buffer)
