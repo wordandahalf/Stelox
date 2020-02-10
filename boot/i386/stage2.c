@@ -4,12 +4,21 @@
 #include "io.h"
 #include "terminal.h"
 #include "ata.h"
+#include "memory_map.h"
 
-uint8_t *KERNEL_ADDRESS = (uint8_t*)0x0500;
+uint8_t *KERNEL_ADDRESS = (uint8_t*)0x1000;
 
-void read_sectors(AtaDevice *device)
+void run_kernel()
 {
-    atapi_read_sector(device, 0x11, 1, KERNEL_ADDRESS);
+    void (*kernel_main)(void) = (void*)KERNEL_ADDRESS;
+    kernel_main();
+}
+
+void read_kernel(AtaDevice *device)
+{
+    atapi_read_sector(device, 0x10, 1, KERNEL_ADDRESS);
+
+    log("Read ISO9660 PVD...", TERMINAL_INFO_LOG);
 }
 
 int loader_main(void)
@@ -18,37 +27,15 @@ int loader_main(void)
 
     log("Stelox v0.0.1 booted!", TERMINAL_INFO_LOG);
 
-    ata_detect_devices();
+    memory_map_init();
+    log("Received memory map with %d entries.", TERMINAL_INFO_LOG, memory_map.length);
 
-    for(int i = 0; i < 1024; i++)
-        KERNEL_ADDRESS[i] = 0xFF;
+    AtaDevice *device = ata_detect_devices(ATA_PATAPI_DRIVE);
 
-    if(ata_primary_master.type == ATA_PATAPI_DRIVE)
-    {
-        read_sectors(&ata_primary_master);
-    }
-    if(ata_primary_slave.type == ATA_PATAPI_DRIVE)
-    {
-        read_sectors(&ata_primary_slave);
-    }
-    if(ata_secondary_master.type == ATA_PATAPI_DRIVE)
-    {
-        read_sectors(&ata_secondary_master);
-    }
-    if(ata_secondary_slave.type == ATA_PATAPI_DRIVE)
-    {
-        read_sectors(&ata_secondary_slave);
-    }
-
-    for(int y = 0; y < 16; y++)
-    {
-        for(int x = 0; x < 16; x++)
-        {
-            put_int(KERNEL_ADDRESS[(y * 16) + x], false, 16);
-            printf(" ");
-        }
-        printf("\n");
-    }
+    if(device)
+        read_kernel(device);
+    else
+        log("Couldn't find the booted device--try rebooting?", TERMINAL_ERROR_LOG);
 
     for(;;) {}
 
