@@ -245,7 +245,17 @@ static int ata_detect_device(AtaDevice *device)
     ata_software_reset(device);
     ata_400ns_delay(device);
     ata_select_device(device);
-    ata_status_wait(device);
+
+    // ata_status_wait() with a timeout
+    uint8_t status = 0;
+    uint32_t timeout = -1;
+    while(((status = inb(device->io_base + ATA_REG_STATUS)) & ATA_STATUS_BSY) & timeout) timeout--;
+
+    if(!timeout)
+    {    
+        device->type = ATA_NO_DRIVE;
+        return 0;
+    }
 
     uint16_t signature = inb(device->io_base + ATA_REG_LBA_MID) | (inb(device->io_base + ATA_REG_LBA_HIGH) << 8);
 
