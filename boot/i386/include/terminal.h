@@ -141,62 +141,49 @@ void put_int(int64_t value, bool is_signed, uint8_t base)
     put_string(itoa(value, is_signed, base, itoa_buffer));
 }
 
-void printf(char *fmt, ...)
+void vprintf(const char *fmt, va_list arg)
 {
-    va_list var; 
-    va_start(var, fmt);
-
-    for(int i = 0; fmt[i] != 0; i++)
+    // Hopefully no one passes a string with 64 thousand characters...
+    for(uint16_t i = 0; fmt[i]; i++)
     {
-        // The format escape character
         if(fmt[i] == '%')
         {
-            // Make sure there is a visible character following it (except delete, hopefully that doesn't bite me in the ass)
-            if(fmt[i + 1] > 0x20)
+            switch(fmt[i + 1])
             {
-                switch(fmt[i + 1])
-                {
-                    case 'c':
-                        put_char(va_arg(var, uint64_t) & 0xFF);
-                        i++;
-                        break;
-                    case 'd':
-                        put_int(va_arg(var, int64_t), true, 10);
-                        i++;
-                        break;
-                    case 'u':
-                        put_int(va_arg(var, int64_t), false, 10);
-                        i++;
-                        break;
-                    case 'x':
-                        put_string("0x");
-                        put_int(va_arg(var, int64_t), false, 16);
-                        i++;
-                        break;
-                    case 's':
-                        i++;
-                        put_string(va_arg(var, char *));
-                        break;
-                    case 'b':
-                        i++;
-                        put_string(va_arg(var, int) > 0 ? "true" : "false");
-                        break;
-                    case '<':
-                        i++;
-                        terminal.current_color = va_arg(var, int);
-                        break;
-                    case '@':
-                        i++;
-                        terminal.current_color = terminal.default_color;
-                        break;
-                    default:
-                        put_char('%');
-                        break;
-                }
-            }
-            else
-            {
-                put_char('%');
+                case 'd':
+                case 'i':
+                    put_int(va_arg(arg, int64_t), true, 10);
+                    i++;
+                    break;
+                case 'u':
+                    put_int(va_arg(arg, uint64_t), false, 10);
+                case 'x':
+                    put_int(va_arg(arg, uint64_t), false, 16);
+                    i++;
+                    break;
+                case 'c':
+                    put_char(va_arg(arg, uint32_t));
+                    i++;
+                    break;
+                case 's':
+                    put_string(va_arg(arg, char*));
+                    i++;
+                    break;
+                case 'b':
+                    put_string(va_arg(arg, bool) == true ? "true" : "false");
+                    i++;
+                    break;
+                case '<':
+                    terminal.current_color = va_arg(arg, uint32_t);
+                    i++;
+                    break;
+                case '@':
+                    terminal.current_color = terminal.default_color;
+                    i++;
+                    break;
+                default:
+                    put_char('%');
+                    break;
             }
         }
         else
@@ -204,7 +191,13 @@ void printf(char *fmt, ...)
             put_char(fmt[i]);
         }
     }
+}
 
+void printf(char *fmt, ...)
+{
+    va_list var; 
+    va_start(var, fmt);
+    vprintf(fmt, var);
     va_end(var);
 }
 
@@ -229,7 +222,7 @@ void log(char *fmt, TerminalLogType type, ...)
     printf("[%<%s%@] ", create_vga_color(color, 0x0), text);
 
     va_start(var, type);
-    printf(fmt, var);
+    vprintf(fmt, var);
     va_end(var);
 
     put_char('\n');
