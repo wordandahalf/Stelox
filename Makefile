@@ -63,8 +63,9 @@ x86-multi: $(HYBRID_MBR_BIN)
 		-e boot/efi/efi.fat \
 		-no-emul-boot -isohybrid-gpt-basdat \
 		-o $(STELOX_ISO) \
-		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) boot/efi/efi.fat=$(UEFI_BOOT_FAT)
-		@# TODO: kernel/kernel.elf=$(KERNEL_IMAGE)
+		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) boot/efi/efi.fat=$(UEFI_BOOT_FAT) \
+		kernel/kernel-i386.elf=$(BASE_IMAGE_FOLDER)/kernel-i386.elf \
+		kernel/kernel-x86_64.elf=$(BASE_IMAGE_FOLDER)/kernel-x86_64.elf
 
 $(HYBRID_MBR_BIN):
 	$(error "$(HYBRID_MBR_BIN) not found, please instal ISOLINUX")
@@ -74,8 +75,7 @@ x86_64: $(OVMF)
 	@#make -C kernel/ -f Makefile kernel ARCH=x86_64
 
 	@xorriso -as mkisofs -R -f -e boot/efi/efi.fat -no-emul-boot -o $(STELOX_ISO) \
-		-graft-points boot/efi/efi.fat=$(UEFI_BOOT_FAT)
-		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
+		-graft-points boot/efi/efi.fat=$(UEFI_BOOT_FAT) kernel/kernel-$(ARCH).elf=$(BASE_IMAGE_FOLDER)/kernel-$(ARCH).elf
 
 $(OVMF):
 	@echo "OVMF was not found, downloading..."
@@ -84,9 +84,8 @@ $(OVMF):
 
 i386:
 	@make -C boot/ -f Makefile bootloader ARCH=i386 CROSS=$(CROSS)
-	@#make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
+	@make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
 
 	@xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.img -no-emul-boot \
 		-boot-load-size 16 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
-		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE)
-		@# TOOD: kernel/kernel.elf=$(KERNEL_IMAGE)
+		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) kernel/kernel-$(ARCH).elf=$(BASE_IMAGE_FOLDER)/kernel-$(ARCH).elf
