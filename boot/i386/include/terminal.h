@@ -22,8 +22,8 @@ typedef struct {
 Terminal terminal = {
     .buffer = (unsigned short*)0xB8000,
 
-    .current_color = 0x0F,
-    .default_color = 0x0F,
+    .current_color = 0x07,
+    .default_color = 0x07,
 
     .selected_row = 0,
     .selected_column = -1,
@@ -151,13 +151,26 @@ void vprintf(const char *fmt, va_list arg)
             switch(fmt[i + 1])
             {
                 case 'd':
-                case 'i':
+                    put_int(va_arg(arg, int32_t), true, 10);
+                    i++;
+                    break;
+                case 'D':
                     put_int(va_arg(arg, int64_t), true, 10);
                     i++;
                     break;
                 case 'u':
+                    put_int(va_arg(arg, uint32_t), false, 10);
+                    i++;
+                    break;
+                case 'U':
                     put_int(va_arg(arg, uint64_t), false, 10);
+                    i++;
+                    break;
                 case 'x':
+                    put_int(va_arg(arg, uint32_t), false, 16);
+                    i++;
+                    break;
+                case 'X':
                     put_int(va_arg(arg, uint64_t), false, 16);
                     i++;
                     break;
@@ -205,25 +218,29 @@ void log(char *fmt, TerminalLogType type, ...)
 {
     va_list var; 
 
-    uint8_t color = 0x0;
+    uint8_t type_foreground_color = 0x0;
+    uint8_t text_foreground_color = 0x7;
     char    *text = "";
     
     switch(type)
     {
         case TERMINAL_INFO_LOG:
-            color = 0xD;
+            type_foreground_color = 0xD;
             text = "INFO";
             break;
         case TERMINAL_ERROR_LOG:
-            color = 0x4;
+            type_foreground_color = 0x4;
+            text_foreground_color = 0xF;
             text = "ERR ";
     }
     
-    printf("[%<%s%@] ", create_vga_color(color, 0x0), text);
+    printf("[%<%s%@] ", create_vga_color(type_foreground_color, 0x0), text);
 
+    printf("%<", create_vga_color(text_foreground_color, 0x0));
     va_start(var, type);
     vprintf(fmt, var);
     va_end(var);
+    printf("%@");
 
     put_char('\n');
 }
