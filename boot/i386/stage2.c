@@ -2,51 +2,48 @@
 
 #include "types.h"
 #include "io.h"
+
 #include "terminal.h"
 #include "ata.h"
-#include "memory_map.h"
 
-uint8_t *KERNEL_ADDRESS = (uint8_t*)0x1000;
+#include "memory_map.h"
+#include "iso9660.h"
+#include "elf.h"
 
 void run_kernel()
 {
-    void (*kernel_main)(void) = (void*)KERNEL_ADDRESS;
-    kernel_main();
+    //void (*kernel_main)(void) = (void*)KERNEL_ADDRESS;
+    //kernel_main();
 }
 
 void read_kernel(AtaDevice *device)
 {
-    atapi_read_sector(device, 0x10, 1, KERNEL_ADDRESS);
+    VolumeDescriptor *descriptor = read_volume_descriptor(device, 0x10);
 
-    uint32_t signature = ((uint32_t *)(KERNEL_ADDRESS + 1))[0];
-
-    if(signature == 0x30304443) // 'CD00' in ASCII (the whole signature is CD001, but that is too big for a uint32_t)
+    if(descriptor)
     {
-        uint8_t volume_type = KERNEL_ADDRESS[0];
-
-        // volume_type == 1 => PVD
-        if(volume_type == 0x1)
+        if(descriptor->type == 0x1)
         {
-            log("Found the Primary Volume Descriptor...", TERMINAL_INFO_LOG);
+            PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
+            DirectoryRecord *directory_record = load_root_directory(pvd, device);
 
-            // To be continued...
-            for(;;);
-        }
-        else
-        {
-            log("Found Volume Descriptor of type %x instead of type 1!", TERMINAL_ERROR_LOG, volume_type);
-            goto error;
+            uint8_t *file = load_file("KERNEL/KERNEL32.ELF", directory_record, device);
+
+            if(file)
+            {
+                ElfHeader *elf_header = (ElfHeader*)file;
+
+                if(strcmp(elf_header->magic_text, "ELF", 3))
+                {
+                    log("Loaded kernel ELF at 0x%x", TERMINAL_INFO_LOG, file);
+                }
+            }
+            else
+            {
+                log("Couldn't find kernel: try rebooting or recreating media!", TERMINAL_ERROR_LOG);
+            }
         }
     }
-    else
-    {
-        log("Could not find ISO9660 PVD.", TERMINAL_ERROR_LOG);
-        goto error;
-    }
-
-    error:
-        log("Please try recreating your startup medium.", TERMINAL_ERROR_LOG);
-        for(;;);
 }
 
 int loader_main(void)
@@ -56,10 +53,10 @@ int loader_main(void)
     log("Stelox v0.0.1 booted!", TERMINAL_INFO_LOG);
 
     memory_map_init();
-    log("Received memory map with %d entries.", TERMINAL_INFO_LOG, memory_map.length);
+    log("Received memory map with %d entries", TERMINAL_INFO_LOG, memory_map.length);
 
     AtaDevice *device = ata_detect_devices(ATA_PATAPI_DRIVE);
-    log("Found a %uKB CD-ROM.", TERMINAL_INFO_LOG, (device->capacity.lba_count * device->capacity.block_size) / 1024);
+    log("Found a %uKB CD-ROM", TERMINAL_INFO_LOG, (device->capacity.lba_count * device->capacity.block_size) / 1024);
 
     if(device)
         read_kernel(device);
