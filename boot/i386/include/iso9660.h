@@ -129,27 +129,30 @@ uint8_t *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *
             // If the name is what we are looking for, then load it!
             if(strcmp(directory->file_identifier, name_buffer, name_length))
             {
+                uint8_t sectors = directory->directory_extent_length / device->capacity.block_size;
+
+                // Since ints chop off decimals, we need to accommodate for a partial sector of data
+                if(directory->directory_extent_length % device->capacity.block_size)
+                    sectors++;
+
+                atapi_read_sector(device, directory->directory_extent_lba, sectors, buffer);
+
+                uint8_t *cpy = buffer;
+                buffer += directory->directory_extent_length;
+
                 // If the name ends with a null terminator and the file identifier ends with a ';'
                 if(!filename[name_length] || directory->file_identifier[name_length] == ';')
                 {
-                    // Load the file!
-                    atapi_read_sector(device, directory->directory_extent_lba, directory->directory_extent_length / device->capacity.block_size, buffer);
-                    
-                    uint8_t *file = buffer;
-                    buffer += directory->directory_extent_length;
+                    // Loaded the file!
 
-                    return file;
+                    return cpy;
                 }
                 else
                 if(filename[name_length] == '/')
                 {
-                    // Load the folder!                    
-                    atapi_read_sector(device, directory->directory_extent_lba, directory->directory_extent_length / device->capacity.block_size, buffer);
-                    
-                    DirectoryRecord *subdirectory = (DirectoryRecord*)buffer;
-                    buffer += directory->directory_extent_length;
+                    // Loaded another directory table
 
-                    return load_file(filename + name_length + 1, subdirectory, device);
+                    return load_file(filename + name_length + 1, (DirectoryRecord*)cpy, device);
                 }
             }
             else
