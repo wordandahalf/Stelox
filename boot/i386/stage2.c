@@ -18,10 +18,12 @@ void run_kernel()
 
 void read_kernel(AtaDevice *device)
 {
+    // The PVD is always located at sector 16 (0x10) in the image
     VolumeDescriptor *descriptor = read_volume_descriptor(device, 0x10);
 
     if(descriptor)
     {
+        // PVDs have a type of 1
         if(descriptor->type == 0x1)
         {
             PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
@@ -36,14 +38,30 @@ void read_kernel(AtaDevice *device)
                 if(strcmp(elf_header->magic_text, "ELF", 3))
                 {
                     log("Loaded kernel ELF at 0x%x", TERMINAL_INFO_LOG, file);
+
+                    for(;;);
+                }
+                else
+                {
+                    log("Kernel is not a valid ELF image!", TERMINAL_ERROR_LOG);
                 }
             }
             else
             {
-                log("Couldn't find kernel: try rebooting or recreating media!", TERMINAL_ERROR_LOG);
+                log("Couldn't find kernel!", TERMINAL_ERROR_LOG);
             }
         }
+        else
+        {
+            log("Couldn't find primary volume descriptor!", TERMINAL_ERROR_LOG);
+        }
     }
+    else
+    {
+        log("Couldn't find volume descriptor!", TERMINAL_ERROR_LOG);
+    }
+
+    log("Try rebooting or recreating your media...", TERMINAL_ERROR_LOG);
 }
 
 int loader_main(void)
