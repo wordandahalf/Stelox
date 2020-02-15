@@ -105,7 +105,7 @@ typedef struct
     uint16_t        io_base;
     uint16_t        control;
     bool            is_slave;
-    AtaDriveType   type;
+    AtaDriveType    type;
     AtaIdentity     identity;
     AtaCapacity     capacity;
 } AtaDevice;
@@ -134,6 +134,9 @@ static void ata_400ns_delay(AtaDevice *device)
     inb(device->io_base + ATA_REG_STATUS);
 }
 
+/*
+* Soft-resets the drive
+*/
 static void ata_software_reset(AtaDevice *device)
 {
     outb(device->control, 0x4);
@@ -141,10 +144,12 @@ static void ata_software_reset(AtaDevice *device)
     outb(device->control, 0x0);
 }
 
+/*
+*   Waits until the BSY bit of ATA_REG_STATUS is cleared
+*   Returns the value of the status register
+*/
 static int ata_status_wait(AtaDevice *device)
 {
-    // Waits until the BSY bit is cleared
-
     uint8_t status = 0;
 
     while((status = inb(device->io_base + ATA_REG_STATUS)) & ATA_STATUS_BSY);
@@ -152,12 +157,19 @@ static int ata_status_wait(AtaDevice *device)
     return status;
 }
 
+/*
+*   Selects the drive and waits 400ns
+*/
 static void ata_select_device(AtaDevice *device)
 {
     outb(device->io_base + ATA_REG_SELECT_DRIVE_HEAD, 0xA0 | device->is_slave << 4);
     ata_400ns_delay(device);
 }
 
+/*
+*   Detects the capacity of the provided drive, storing it into
+*   'capacity' 
+*/
 static void atapi_detect_capacity(AtaDevice *device)
 {
     if(device->type < ATA_PATAPI_DRIVE)
@@ -165,9 +177,9 @@ static void atapi_detect_capacity(AtaDevice *device)
 
     ata_select_device(device);
     outb(device->io_base + ATA_REG_FEATURES, 0x0);
-    outb(device->io_base + ATA_REG_LBA_MID, 0x8);
+    outb(device->io_base + ATA_REG_LBA_MID,  0x8);
     outb(device->io_base + ATA_REG_LBA_HIGH, 0x8);
-    outb(device->io_base + ATA_REG_COMMAND, 0xA0); //ATA_CMD_PACKET
+    outb(device->io_base + ATA_REG_COMMAND,  0xA0); //ATA_CMD_PACKET
 
     // poll
 	while (1) {
@@ -176,7 +188,7 @@ static void atapi_detect_capacity(AtaDevice *device)
 		if (!(status & ATA_STATUS_BSY) && (status & ATA_STATUS_RDY)) break;
 	}
 
-    // send ATAPI Packet
+    // Send ATAPI READ CAPACITY command
     AtapiCommand detect_capacity;
     for(uint8_t i = 0; i < 6; i++)
         detect_capacity.command_words[i] = 0x0000;
@@ -235,7 +247,8 @@ static void atapi_init_device(AtaDevice *device)
 }
 
 /*
-*   Detects the type of drive, initi
+*   Detects the type of drive, initializing it if it is PATAPI
+*   Returns -1 if there was an error, 0 if no drive was found, or 1 if a drive was found
 */
 static int ata_detect_device(AtaDevice *device)
 {
@@ -278,6 +291,7 @@ static int ata_detect_device(AtaDevice *device)
             break;
     }
 
+    // Are SATAPI drives backwards compatible with PATAPI?
     if(device->type > ATA_SATA_DRIVE)
     {
         atapi_init_device(device);
@@ -314,6 +328,7 @@ static void atapi_read_sector(AtaDevice *device, uint32_t lba, uint8_t sectors, 
     if(device->type < ATA_PATAPI_DRIVE)
         return;
     
+    ata_software_reset(device);
     ata_select_device(device);
     
     outb(device->io_base + ATA_REG_FEATURES, 0x0);
