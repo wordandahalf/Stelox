@@ -13,6 +13,17 @@ typedef unsigned long uintptr_t;
 
 typedef enum { false, true } bool;
 
+bool strcmp(const char s0[], const char s1[], uint8_t length)
+{
+    for(int i = 0; i < length; i++)
+    {
+        if(s0[i] != s1[i])
+            return false;
+    }
+
+    return true;
+}
+
 #define NULL (0)
 
 #endif
