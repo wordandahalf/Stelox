@@ -43,4 +43,16 @@ inline uint32_t inl(uint16_t port)
     return ret;
 }
 
+inline void *memcpy(void *restrict dest, const void *restrict src, long length)
+{
+    asm volatile (
+        "cld; rep movsb"
+        : "=c"((int){0})
+        : "D"(dest), "S"(src), "c"(length)
+        : "flags", "memory"
+    );
+
+    return dest;
+}
+
 #endif

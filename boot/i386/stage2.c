@@ -39,6 +39,42 @@ void read_kernel(AtaDevice *device)
                 {
                     log("Loaded kernel ELF at 0x%x", TERMINAL_INFO_LOG, file);
 
+                    ElfProgramHeader *header_table = (ElfProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
+
+                    ElfProgramHeader text_header = header_table[0];
+                    ElfProgramHeader data_header = header_table[1];
+
+                    if(text_header.type == 0x1 && text_header.flags == 0b101)
+                    {
+                        // Load the text header!
+                    }
+                    else
+                    {
+                        
+                    }
+                    
+                    if(data_header.type == 0x1 && data_header.flags == 0b110)
+                    {
+                        // Load the data header!
+                        printf("Data offset: %x\n", data_header.data_offset);
+
+                        uint8_t *ptr = (uint8_t*)((uint32_t)elf_header + data_header.data_offset);
+                       // while(*((uint32_t*) ptr) != 0xB8000)
+                        //{
+                        //    ptr++;
+                        //}
+
+                        printf("Found at %x\n", ptr);
+                        for(int i = 0; i < 32; i++)
+                            printf("%x ", ptr[i]);
+
+                        memcpy((void *restrict) data_header.load_address, (void *restrict) ((uint32_t) elf_header + data_header.data_offset), data_header.data_size);
+                    }
+                    else
+                    {
+
+                    }
+
                     for(;;);
                 }
                 else
