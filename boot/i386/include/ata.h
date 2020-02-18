@@ -327,7 +327,7 @@ static void atapi_read_sector(AtaDevice *device, uint32_t lba, uint8_t sectors, 
 {
     if(device->type < ATA_PATAPI_DRIVE)
         return;
-    
+
     ata_software_reset(device);
     ata_select_device(device);
     
@@ -372,7 +372,7 @@ static void atapi_read_sector(AtaDevice *device, uint32_t lba, uint8_t sectors, 
         }
 
         uint16_t read_word = 0;
-        for(uint32_t i = 0; i < (device->capacity.block_size / 2); i += 2)
+        for(uint32_t i = 0; i < device->capacity.block_size; i += 2)
         {
             read_word = inw(device->io_base);
 
