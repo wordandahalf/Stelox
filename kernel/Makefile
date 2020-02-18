@@ -72,7 +72,7 @@ kernel-x86_64: $(KERNEL_OBJECTS)
 
 kernel-i386: $(KERNEL_OBJECTS)
 	@echo "Creating $(KERNEL_ELF_IMAGE)" 
-	@$(LD) -e main -m elf_i386 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
+	@$(LD) -T link.ld -m elf_i386 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
 
 $(KERNEL_BUILD_FOLDER)/%.o: $(BASE_KERNEL_FOLDER)/%.c
 	@echo "Compiling $< to $@"

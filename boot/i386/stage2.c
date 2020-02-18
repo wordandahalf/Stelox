@@ -10,10 +10,12 @@
 #include "iso9660.h"
 #include "elf.h"
 
-void run_kernel()
+void run_kernel(uint32_t address)
 {
-    //void (*kernel_main)(void) = (void*)KERNEL_ADDRESS;
-    //kernel_main();
+    log("Jumping to kernel at 0x%x", TERMINAL_INFO_LOG, address);
+
+    void (*kernel_main)(void) = (void*)address;
+    kernel_main();
 }
 
 void read_kernel(AtaDevice *device)
@@ -47,6 +49,9 @@ void read_kernel(AtaDevice *device)
                     if(text_header.type == 0x1 && text_header.flags == 0b101)
                     {
                         // Load the text header!
+                        uint32_t src = ((uint32_t) elf_header) + text_header.data_offset;
+
+                        memcpy((void *restrict)text_header.load_address, (const void *restrict)src, text_header.data_size);
                     }
                     else
                     {
@@ -56,25 +61,17 @@ void read_kernel(AtaDevice *device)
                     if(data_header.type == 0x1 && data_header.flags == 0b110)
                     {
                         // Load the data header!
-                        printf("Data offset: %x\n", data_header.data_offset);
-
-                        uint8_t *ptr = (uint8_t*)((uint32_t)elf_header + data_header.data_offset);
-                       // while(*((uint32_t*) ptr) != 0xB8000)
-                        //{
-                        //    ptr++;
-                        //}
-
-                        printf("Found at %x\n", ptr);
-                        for(int i = 0; i < 32; i++)
-                            printf("%x ", ptr[i]);
-
-                        memcpy((void *restrict) data_header.load_address, (void *restrict) ((uint32_t) elf_header + data_header.data_offset), data_header.data_size);
+                        uint32_t src = ((uint32_t) elf_header) + data_header.data_offset;
+                        memcpy((void *restrict)data_header.load_address, (const void *restrict)src, data_header.data_size);
                     }
                     else
                     {
 
                     }
+                
+                    run_kernel(text_header.load_address);
 
+                    log("Returned from kernel!", TERMINAL_ERROR_LOG);
                     for(;;);
                 }
                 else
