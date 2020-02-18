@@ -10,6 +10,7 @@ void prints(const char *msg)
     }
 }
 
+extern "C"
 void kernel_main(void)
 {
     prints("Hello, kernel!");
