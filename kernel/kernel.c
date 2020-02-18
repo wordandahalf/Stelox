@@ -1,9 +1,18 @@
-unsigned char *terminal_buffer = (unsigned char*) 0xB8000;
+unsigned short *terminal_buffer = (unsigned short*) 0xB8000;
+
+// Top-of-the-line print function
+void prints(const char *msg)
+{
+    for(unsigned int i = 0; *msg; i++)
+    {
+        terminal_buffer[i] =  0x0F << 8 | *msg; // Color + character (little endian)
+        msg++;
+    }
+}
 
 void kernel_main(void)
 {
-    terminal_buffer[2] = 'r';
-    terminal_buffer[3] = 0x1B;
+    prints("Hello, kernel!");
 
     for(;;);
 }
