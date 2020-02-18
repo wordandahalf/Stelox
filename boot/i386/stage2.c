@@ -68,8 +68,18 @@ void read_kernel(AtaDevice *device)
                     {
 
                     }
+
+                    // Parse the multiboot header
                 
-                    run_kernel(text_header.load_address);
+                    uint32_t *ptr = (uint32_t*)text_header.load_address;
+
+                    while(*ptr != 0xE85250D6) // magic number
+                        ptr++;
+
+                    uint32_t header_size = *(ptr + 2);
+                    uint32_t code_address = ((uint32_t) ptr) + header_size;
+
+                    run_kernel(code_address);
 
                     log("Returned from kernel!", TERMINAL_ERROR_LOG);
                     for(;;);
