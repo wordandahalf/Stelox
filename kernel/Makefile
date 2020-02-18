@@ -9,36 +9,35 @@ BASE_IMAGE_FOLDER		= $(BASE_BUILD_FOLDER)/images
 # General command variables
 
 ifdef CROSS
-GCC_i386				= $(CROSS)-gcc
-LD_i386					= $(CROSS)-ld
+GCC_i386				= $(CROSS)-g++
 OBJCOPY_i386			= $(CROSS)-objcopy
 else
-GCC_i386				= gcc
-LD_i386					= ld
+GCC_i386				= g++
 OBJCOPY_i386			= objcopy
 endif
 
-GCC_x86_64				= gcc
-LD_x86_64				= ld
+GCC_x86_64				= g++
+
+NASM_x86_64_FLAGS		= -felf64
+NASM_i386_FLAGS			= -felf32
 
 # Platform-dependent variables
 
-GCC_x86_64_FLAGS		= -Os -fno-pie -g -std=gnu99 -Wall -Wextra -pedantic -Wshadow -Wpointer-arith \
-           					-Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations \
-            				-Wredundant-decls -Wnested-externs -Winline -Wno-long-long \
-        					-Wconversion -Wstrict-prototypes
-GCC_i386_FLAGS			= -m32 -Os -fno-pie -g -std=gnu99 -Wall -Wextra -pedantic -Wshadow -Wpointer-arith \
-           					-Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations \
-            				-Wredundant-decls -Wnested-externs -Winline -Wno-long-long \
-        					-Wconversion -Wstrict-prototypes
+GCC_x86_64_FLAGS		= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -fno-pie -fPIC
+GCC_i386_FLAGS			= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti
+
+LINK_x86_64_FLAGS		= -ffreestanding -O2 -nostdlib -fno-pie -fPIC
+LINK_i386_FLAGS			= -ffreestanding -O2 -nostdlib
 
 # Kernel variables
 
 KERNEL_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/$(ARCH)/kernel
 
-KERNEL_SOURCES			= $(BASE_KERNEL_FOLDER)/entry.asm $(BASE_KERNEL_FOLDER)/kernel.c
+KERNEL_LINKER			= $(BASE_KERNEL_FOLDER)/linker.ld
 
-KERNEL_OBJECTS			= $(KERNEL_SOURCES:.c=.o)
+KERNEL_SOURCES			= $(BASE_KERNEL_FOLDER)/entry.asm $(BASE_KERNEL_FOLDER)/kernel.cpp
+
+KERNEL_OBJECTS			= $(KERNEL_SOURCES:.cpp=.o)
 KERNEL_OBJECTS			:= $(KERNEL_OBJECTS:.asm=.bin)
 KERNEL_OBJECTS			:= $(subst $(BASE_KERNEL_FOLDER),$(KERNEL_BUILD_FOLDER),$(KERNEL_OBJECTS))
 
@@ -67,18 +66,13 @@ clean:
 	-@mkdir -p $(KERNEL_BUILD_FOLDER)
 	@rm -rf $(KERNEL_OBJECTS) $(KERNEL_ELF_IMAGE)
 
-kernel-x86_64: $(KERNEL_OBJECTS)
+kernel-$(ARCH): $(KERNEL_OBJECTS)
 	@echo "Creating $(KERNEL_ELF_IMAGE)" 
-	@$(LD) -e main -m elf_x86_64 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
-
-kernel-i386: $(KERNEL_OBJECTS)
-	@echo "Creating $(KERNEL_ELF_IMAGE)" 
-	@$(GCC_$(ARCH)) -T link.ld -o $(KERNEL_ELF_IMAGE) -ffreestanding -O2 -nostdlib $(KERNEL_OBJECTS) -lgcc
-	@#$(LD) -T link.ld -m elf_i386 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
+	$(GCC_$(ARCH)) -T $(KERNEL_LINKER) -o $(KERNEL_ELF_IMAGE) $(LINK_$(ARCH)_FLAGS) $(KERNEL_OBJECTS) -lgcc
 
 $(KERNEL_BUILD_FOLDER)/%.bin: $(BASE_KERNEL_FOLDER)/%.asm
-	@nasm -felf32 $< -o $@
+	nasm $(NASM_$(ARCH)_FLAGS) $< -o $@
 
-$(KERNEL_BUILD_FOLDER)/%.o: $(BASE_KERNEL_FOLDER)/%.c
+$(KERNEL_BUILD_FOLDER)/%.o: $(BASE_KERNEL_FOLDER)/%.cpp
 	@echo "Compiling $< to $@"
-	@$(GCC_$(ARCH)) -c $< -o $@ $(GCC_$(ARCH)_FLAGS) 
+	$(GCC_$(ARCH)) -c $< -o $@ $(GCC_$(ARCH)_FLAGS) 
