@@ -52,7 +52,8 @@ endif
 x86-multi: $(HYBRID_MBR_BIN)
 	@make -C boot/ -f Makefile bootloader ARCH=i386 CROSS=$(CROSS)
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
-	@#make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
+	@make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
+	@make -C kernel/ -f Makefile kernel ARCH=x86_64
 
 	@xorriso -as mkisofs \
 		-c boot/boot.cat \
