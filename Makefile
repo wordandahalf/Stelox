@@ -87,5 +87,5 @@ i386:
 	@make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
 
 	@xorriso -as mkisofs -c boot/bootcat -b boot/boot.img -no-emul-boot \
-		-boot-load-size 18 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
+		-boot-load-size 20 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) kernel/kernel32.elf=$(BASE_IMAGE_FOLDER)/kernel-i386.elf
