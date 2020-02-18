@@ -36,9 +36,10 @@ GCC_i386_FLAGS			= -m32 -Os -fno-pie -g -std=gnu99 -Wall -Wextra -pedantic -Wsha
 
 KERNEL_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/$(ARCH)/kernel
 
-KERNEL_SOURCES			= $(BASE_KERNEL_FOLDER)/kernel.c
+KERNEL_SOURCES			= $(BASE_KERNEL_FOLDER)/entry.asm $(BASE_KERNEL_FOLDER)/kernel.c
 
 KERNEL_OBJECTS			= $(KERNEL_SOURCES:.c=.o)
+KERNEL_OBJECTS			:= $(KERNEL_OBJECTS:.asm=.bin)
 KERNEL_OBJECTS			:= $(subst $(BASE_KERNEL_FOLDER),$(KERNEL_BUILD_FOLDER),$(KERNEL_OBJECTS))
 
 KERNEL_ELF_IMAGE		= $(BASE_IMAGE_FOLDER)/kernel-$(ARCH).elf
@@ -72,7 +73,11 @@ kernel-x86_64: $(KERNEL_OBJECTS)
 
 kernel-i386: $(KERNEL_OBJECTS)
 	@echo "Creating $(KERNEL_ELF_IMAGE)" 
-	@$(LD) -T link.ld -m elf_i386 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
+	@$(GCC_$(ARCH)) -T link.ld -o $(KERNEL_ELF_IMAGE) -ffreestanding -O2 -nostdlib $(KERNEL_OBJECTS) -lgcc
+	@#$(LD) -T link.ld -m elf_i386 -o $(KERNEL_ELF_IMAGE) $(KERNEL_OBJECTS)
+
+$(KERNEL_BUILD_FOLDER)/%.bin: $(BASE_KERNEL_FOLDER)/%.asm
+	@nasm -felf32 $< -o $@
 
 $(KERNEL_BUILD_FOLDER)/%.o: $(BASE_KERNEL_FOLDER)/%.c
 	@echo "Compiling $< to $@"
