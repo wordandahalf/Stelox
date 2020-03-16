@@ -23,17 +23,17 @@ NASM_i386_FLAGS			= -felf32
 
 # Platform-dependent variables
 
-GCC_x86_64_FLAGS		= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -fno-pie -fPIC
+GCC_x86_64_FLAGS		= -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -O2 -Wall -Wextra -fno-exceptions -fno-rtti
 GCC_i386_FLAGS			= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti
 
-LINK_x86_64_FLAGS		= -ffreestanding -O2 -nostdlib -fno-pie -fPIC
-LINK_i386_FLAGS			= -ffreestanding -O2 -nostdlib
+LINK_x86_64_FLAGS		= -O2 -lgcc -nostdlib -no-pie
+LINK_i386_FLAGS			= -O2 -lgcc -nostdlib
 
 # Kernel variables
 
 KERNEL_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/$(ARCH)/kernel
 
-KERNEL_LINKER			= $(BASE_KERNEL_FOLDER)/linker.ld
+KERNEL_LINKER			= $(BASE_KERNEL_FOLDER)/linker-$(ARCH).ld
 
 KERNEL_SOURCES			= $(BASE_KERNEL_FOLDER)/entry.asm $(BASE_KERNEL_FOLDER)/kernel.cpp
 
@@ -68,7 +68,7 @@ clean:
 
 kernel-$(ARCH): $(KERNEL_OBJECTS)
 	@echo "Creating $(KERNEL_ELF_IMAGE)" 
-	$(GCC_$(ARCH)) -T $(KERNEL_LINKER) -o $(KERNEL_ELF_IMAGE) $(LINK_$(ARCH)_FLAGS) $(KERNEL_OBJECTS) -lgcc
+	$(GCC_$(ARCH)) -ffreestanding -T $(KERNEL_LINKER) $(KERNEL_OBJECTS) -o $(KERNEL_ELF_IMAGE) $(LINK_$(ARCH)_FLAGS)
 
 $(KERNEL_BUILD_FOLDER)/%.bin: $(BASE_KERNEL_FOLDER)/%.asm
 	nasm $(NASM_$(ARCH)_FLAGS) $< -o $@
