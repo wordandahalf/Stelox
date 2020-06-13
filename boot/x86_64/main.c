@@ -2,58 +2,48 @@
 #include <efilib.h>
 
 #include "io.h"
+#include "ata.h"
+#include "iso9660.h"
+#include "elf.h"
+
+#define ERR(s, m) if(EFI_ERROR(s)) uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, m);
+
+const CHAR16 *KERNEL_FILE_NAME = "kernel/kernel64.elf";
 
 EFI_SYSTEM_TABLE *ST = NULL;
+EFI_STATUS Status;
 
-EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
+EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+{
+    EFI_STATUS Status;
     ST = SystemTable;
-    InitializeLib(ImageHandle, ST);
 
-    EFI_STATUS status;
+    InitializeLib(ImageHandle, SystemTable);
 
-    status = ST->ConOut->ClearScreen(ST->ConOut);
-    check_efi_error(status, L"Failed to clear the screen");
+    ST->BootServices->SetWatchdogTimer(0, 0, 0, NULL);
 
-    log_info(L"Stelox-UEFI v0.0.1 loaded!");
+    Status = uefi_call_wrapper(ST->ConOut->Reset, 2, ST->ConOut, FALSE);
+    ERR(Status, L"There was an error resetting the console!\r\n");
 
-    UINT64 timeout_seconds = 10;
+    Status = uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+    ERR(Status, L"There was an error clearing the console!\r\n");
 
-    EFI_INPUT_KEY key;
+    AtaDevice *device = ata_detect_devices(ATA_PATAPI_DRIVE);
 
-    Print(L"%HContinuing in %llu seconds...\n\rPress any key to stop the timer, press 'd' to enter debug mode, or press 'c' to immediately boot into the selected OS.%N\r\n", timeout_seconds);
-
-    while(timeout_seconds)
+    if(device != NULL)
     {
-        status = WaitForSingleEvent(ST->ConIn->WaitForKey, 10000000);
-        if(status != EFI_TIMEOUT)
-        {
-            status = ST->ConIn->ReadKeyStroke(ST->ConIn, &key);
-            check_efi_error(status, L"Failed to read from the input buffer");
+        UINT16 size = (device->capacity.lba_count * device->capacity.block_size) / 1024;
 
-            if(key.UnicodeChar == L'd')
-            {
-                log_info(L"Loading debug mode...");
-                break;
-            }
-            else
-            if(key.UnicodeChar == L'c')
-            {
-                log_info(L"Loading OS...");
-                break;
-            }
-            else
-            {
-                break;
-            }
-        }
+        Print(L"Found a %dKB CD-ROM...\r\n", size);
+        
+        // The PVD is always located at sector 16 (0x10) in the image
+        VolumeDescriptor *descriptor = read_volume_descriptor(device, 0x10);
+        Print(L"Type: %d\r\n", descriptor->type);
 
-        timeout_seconds -= 1;
+        for(;;);
     }
 
-    if(!timeout_seconds)
-    {
-        log_info(L"Loading OS...");
-    }
+    for(;;);
 
     return EFI_SUCCESS;
 }

@@ -2,33 +2,47 @@
 #define __UEFI_IO_H_
 
 #include <efi.h>
-#include <efilib.h>
 
-BOOLEAN check_efi_error(EFI_STATUS status, const CHAR16 *error_msg)
+inline void outb(UINT16 port, UINT8 val)
 {
-    if(EFI_ERROR(status))
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+
+inline void outw(UINT16 port, UINT16 val)
+{
+    asm volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
+}
+
+inline UINT8 inb(UINT16 port)
+{
+    UINT8 ret = 0;
+
+    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
+
+    return ret;
+}
+
+inline UINT16 inw(UINT16 port)
+{
+    UINT16 ret = 0;
+
+    asm volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port));
+
+    return ret;
+}
+
+
+typedef enum { true, false } bool;
+
+bool strcmp(const char s0[], const char s1[], UINT8 length)
+{
+    for(int i = 0; i < length; i++)
     {
-        Print(L"[%EERROR%N] %H%s%N\r\n", error_msg);
-        return TRUE;
+        if(s0[i] != s1[i])
+            return false;
     }
 
-    return FALSE;
-}
-
-void log_msg(const CHAR16 *msg)
-{
-    uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, 0x0F);
-    Print(L"%H%s%N\r\n", msg);
-}
-
-void log_info(const CHAR16 *msg)
-{
-    uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, 0x0F);
-    Print(L"[");
-    uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, 0x09);
-    Print(L"INFO");
-    uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, 0x0F);
-    Print(L"] %s%N\r\n", msg);
+    return true;
 }
 
 #endif
