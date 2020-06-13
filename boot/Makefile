@@ -55,17 +55,17 @@ GNU_EFI_FOLDER			= $(BASE_UTILS_FOLDER)/gnu-efi
 GNU_EFI_INCLUDE_FOLDER 	= $(GNU_EFI_FOLDER)/inc
 GNU_EFI_LIBRARY_FOLDER 	= $(GNU_EFI_FOLDER)/lib
 
-GNU_EFI_EFI_LIBRARY 	= $(GNU_EFI_FOLDER)/efi-lib
-GNU_EFI_CRT_OBJ 		= $(GNU_EFI_EFI_LIBRARY)/crt0-efi-x86_64.o
-GNU_EFI_ELF_LDS 		= $(GNU_EFI_EFI_LIBRARY)/elf_x86_64_efi.lds
+GNU_EFI_EFI_LIBRARY_FOLDER 	= $(GNU_EFI_FOLDER)/efi-lib
+GNU_EFI_CRT_OBJ 		= $(GNU_EFI_EFI_LIBRARY_FOLDER)/crt0-efi-x86_64.o
+GNU_EFI_ELF_LDS 		= $(GNU_EFI_EFI_LIBRARY_FOLDER)/elf_x86_64_efi.lds
 
 GNU_EFI_SCRIPT			= $(BASE_UTILS_FOLDER)/get-gnu-efi.sh
 
 # UEFI build command arguments
 
-UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -fno-stack-protector -fpic -fshort-wchar -mno-red-zone -Wall -DEFI_FUNCTION_WRAPPER 
+UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -fno-stack-protector -fpic -fshort-wchar -mno-red-zone -Wall -Wextra -O2 -DEFI_FUNCTION_WRAPPER 
 
-UEFI_LDFLAGS     		:= -nostdlib -znocombreloc -T $(GNU_EFI_ELF_LDS) -shared -Bsymbolic -L $(GNU_EFI_EFI_LIBRARY) -L $(GNU_EFI_LIBRARY_FOLDER) $(GNU_EFI_CRT_OBJ)
+UEFI_LDFLAGS     		:= -nostdlib -znocombreloc -T $(GNU_EFI_ELF_LDS) -shared -Bsymbolic -L $(GNU_EFI_EFI_LIBRARY_FOLDER) -L $(GNU_EFI_LIBRARY_FOLDER) $(GNU_EFI_CRT_OBJ)
 
 UEFI_OBJCOPY_FLAGS		:= -j .text -j .sdata -j .data -j .dynamic -j .dynsym  -j .rel -j .rela -j .reloc --target=efi-app-x86_64
 
@@ -91,7 +91,7 @@ BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
 # BIOS (x86) build command variables
 
 BIOS_NASM_FLAGS			= -f elf32
-BIOS_CFLAGS				= -fno-pie -std=gnu99 -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
+BIOS_CFLAGS				= -fno-pie -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
 
 ifdef ARCH
 ifneq ($(ARCH),$(shell arch))
@@ -115,7 +115,11 @@ endif
 
 # UEFI build commands
 
+ifneq ("$(wildcard $(GNU_EFI_EFI_LIBRARY_FOLDER))","")
+clean-x86_64:
+else
 clean-x86_64: $(GNU_EFI_FOLDER)
+endif
 	-@echo "Cleaning UEFI bootloader files..."
 	-@mkdir -p $(UEFI_BOOT_IMAGE_FOLDER) $(UEFI_BOOT_FOLDER) $(UEFI_FAT_FOLDER) $(UEFI_BUILD_FOLDER)
 	-@rm -rf $(UEFI_BOOT_OBJECTS) $(UEFI_ELF_OBJECT) $(UEFI_BOOT_TARGET) $(UEFI_BOOT_FAT)
