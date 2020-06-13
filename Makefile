@@ -6,7 +6,7 @@ SUPPORTED_ARCHITECTURES	= i386, x86_64, x86-multi
 
 # General build variables
 
-STELOX_ISO				= $(BASE_IMAGE_FOLDER)/stelox.iso
+STELOX_ISO				= $(BASE_IMAGE_FOLDER)/stelox-$(ARCH).iso
 
 # UEFI (x86-64) build variables
 
@@ -39,11 +39,10 @@ run: $(ARCH)
 	$(QEMU_$(ARCH)) $(QEMU_$(ARCH)_FLAGS)
 else
 ifndef ARCH
-stub:
-	@echo "Please provide a supported architecture."
+run	@echo "Please provide a supported architecture."
 	@echo "Supported architectures: $(SUPPORTED_ARCHITECTURES)"
 else
-stub:
+run:
 	@echo "Unsupported architecture '$(ARCH)'..."
 	@echo "Supported architectures: $(SUPPORTED_ARCHITECTURES)"
 endif
@@ -58,7 +57,7 @@ x86-multi: $(HYBRID_MBR_BIN)
 	@xorriso -as mkisofs \
 		-c boot/boot.cat \
 		-b boot/boot.img \
-		-no-emul-boot -boot-load-size 16 \
+		-no-emul-boot \
 		-isohybrid-mbr $(HYBRID_MBR_BIN) \
 		-eltorito-alt-boot \
 		-e boot/efi/efi.fat \
@@ -87,6 +86,6 @@ i386:
 	@make -C boot/ -f Makefile bootloader ARCH=i386 CROSS=$(CROSS)
 	@make -C kernel/ -f Makefile kernel ARCH=i386 CROSS=$(CROSS)
 
-	@xorriso -as mkisofs -c boot/bootcat -b boot/boot.img -no-emul-boot \
+	@xorriso -as mkisofs -c boot/boot.cat -b boot/boot.img -no-emul-boot \
 		-boot-load-size 20 -o $(STELOX_ISO) -V SteloxCD -input-charset utf-8 \
 		-graft-points boot/boot.img=$(BIOS_BOOT_IMAGE) kernel/kernel32.elf=$(BASE_IMAGE_FOLDER)/kernel-i386.elf
