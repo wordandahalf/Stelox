@@ -67,7 +67,7 @@ static CHAR8   *name_buffer;
 
 void iso9660_allocate_buffers(EFI_SYSTEM_TABLE *ST)
 {
-    EFI_STATUS Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, 0x8000, &buffer);
+    EFI_STATUS Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, 0x400000, &buffer);
     ERR(Status, L"There was an error allocating a pool for loaded sectors!\r\n");
 
     Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, 0x100, &name_buffer);
@@ -80,7 +80,7 @@ void iso9660_allocate_buffers(EFI_SYSTEM_TABLE *ST)
 */
 VolumeDescriptor *read_volume_descriptor(AtaDevice *device, UINT32 lba)
 {
-    atapi_read_sector(device, lba, 1, buffer);
+    atapi_read_sectors(device, lba, 1, buffer);
 
     if(strcmp(((CHAR8*) buffer) + 1, (CHAR8*) "CD001", 5))
     {
@@ -107,7 +107,7 @@ DirectoryRecord *load_root_directory(PrimaryVolumeDescriptor *pvd, AtaDevice *de
     DirectoryRecord *root = (DirectoryRecord*)pvd->root_directory;
 
     Print(L"Loading sector 0x%x for root directory\r\n", root->directory_extent_lba);
-    atapi_read_sector(device, root->directory_extent_lba, root->directory_extent_length / device->capacity.block_size, buffer);
+    atapi_read_sectors(device, root->directory_extent_lba, root->directory_extent_length / device->capacity.block_size, buffer);
 
     DirectoryRecord *record = (DirectoryRecord*)buffer;
 
@@ -142,13 +142,13 @@ UINT8 *load_file(const CHAR8 *filename, DirectoryRecord *directory, AtaDevice *d
             // If the name is what we are looking for, then load it!
             if(strcmp((CHAR8*) directory->file_identifier, name_buffer, name_length))
             {
-                UINT8 sectors = directory->directory_extent_length / device->capacity.block_size;
+                UINT32 sectors = directory->directory_extent_length / device->capacity.block_size;
 
                 // Since ints chop off decimals, we need to accommodate for a partial sector of data
                 if(directory->directory_extent_length % device->capacity.block_size)
                     sectors++;
 
-                atapi_read_sector(device, directory->directory_extent_lba, sectors, buffer);
+                atapi_read_sectors(device, directory->directory_extent_lba, sectors, buffer);
 
                 UINT8 *cpy = buffer;
                 buffer += directory->directory_extent_length;
