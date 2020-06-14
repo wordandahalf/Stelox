@@ -325,7 +325,7 @@ static AtaDevice *ata_detect_devices(AtaDriveType type)
     return NULL;
 }
 
-static void atapi_read_sector(AtaDevice *device, UINT32 lba, UINT8 sectors, UINT8 *buffer)
+static void atapi_read_sectors(AtaDevice *device, UINT32 lba, UINT32 sectors, UINT8 *buffer)
 {
     if(device->type < ATA_PATAPI_DRIVE)
         return;
@@ -364,7 +364,7 @@ static void atapi_read_sector(AtaDevice *device, UINT32 lba, UINT8 sectors, UINT
     for(UINT8 i = 0; i < 6; i++)
         outw(device->io_base, command.command_words[i]);
 
-    for(UINT8 i = 0; i < sectors; i++)
+    for(UINT32 i = 0; i < sectors; i++)
     {
         // poll
         while (1) {
@@ -374,12 +374,12 @@ static void atapi_read_sector(AtaDevice *device, UINT32 lba, UINT8 sectors, UINT
         }
 
         UINT16 read_word = 0;
-        for(UINT32 i = 0; i < device->capacity.block_size; i += 2)
+        for(UINT32 j = 0; j < device->capacity.block_size; j += 2)
         {
             read_word = inw(device->io_base);
 
-            buffer[i] = read_word & 0xFF;
-            buffer[i + 1] = read_word >> 8;
+            buffer[j] = read_word & 0xFF;
+            buffer[j + 1] = read_word >> 8;
         }
 
         buffer += device->capacity.block_size;
