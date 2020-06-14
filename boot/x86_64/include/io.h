@@ -31,18 +31,37 @@ inline UINT16 inw(UINT16 port)
     return ret;
 }
 
-
-typedef enum { true, false } bool;
-
-bool strcmp(const char s0[], const char s1[], UINT8 length)
+inline void *memcpy(void *restrict dest, const void *restrict src, INT64 length)
 {
-    for(int i = 0; i < length; i++)
+    asm volatile (
+        "cld; rep movsb"
+        : "=c"((int){0})
+        : "D"(dest), "S"(src), "c"(length)
+        : "flags", "memory"
+    );
+
+    return dest;
+}
+
+BOOLEAN strcmp(CONST CHAR8 s0[], CONST CHAR8 s1[], UINT8 length)
+{
+    for(UINT8 i = 0; i < length; i++)
     {
         if(s0[i] != s1[i])
-            return false;
+            return FALSE;
     }
 
-    return true;
+    return TRUE;
+}
+
+void PrintString(CHAR8 *str)
+{
+    while(*str)
+    {
+        Print(L"%s", (CONST UINT16[]) {*str, 0x0});
+
+        str++;
+    }
 }
 
 #endif
