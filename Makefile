@@ -72,7 +72,7 @@ $(HYBRID_MBR_BIN):
 
 x86_64: $(OVMF)
 	@make -C boot/ -f Makefile bootloader ARCH=x86_64
-	@#make -C kernel/ -f Makefile kernel ARCH=x86_64
+	@make -C kernel/ -f Makefile kernel ARCH=x86_64
 
 	@xorriso -as mkisofs -f -e boot/efi/efi.fat -no-emul-boot -o $(STELOX_ISO) \
 		-graft-points boot/efi/efi.fat=$(UEFI_BOOT_FAT) kernel/kernel64.elf=$(BASE_IMAGE_FOLDER)/kernel-x86_64.elf
