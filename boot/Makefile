@@ -63,7 +63,7 @@ GNU_EFI_SCRIPT			= $(BASE_UTILS_FOLDER)/get-gnu-efi.sh
 
 # UEFI build command arguments
 
-UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -fno-stack-protector -fpic -fshort-wchar -mno-red-zone -Wall -Wextra -O2 -DEFI_FUNCTION_WRAPPER 
+UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -fno-stack-protector -fpic -fshort-wchar -ffreestanding -mno-red-zone -Wall -Wextra -O2 -DEFI_FUNCTION_WRAPPER 
 
 UEFI_LDFLAGS     		:= -nostdlib -znocombreloc -T $(GNU_EFI_ELF_LDS) -shared -Bsymbolic -L $(GNU_EFI_EFI_LIBRARY_FOLDER) -L $(GNU_EFI_LIBRARY_FOLDER) $(GNU_EFI_CRT_OBJ)
 
