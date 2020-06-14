@@ -20,17 +20,17 @@ typedef struct
     UINT16        volume_sequence_number;
     UINT16        volume_sequqnce_number_msb;
     UINT8         file_name_length;
-    const char    file_identifier[];
+    CONST CHAR8   file_identifier[];
 } __attribute__((packed)) DirectoryRecord;
 
 typedef struct
 {
     UINT8         type;
-    const char    id[5];
+    CONST CHAR8   id[5];
     UINT8         version;
     UINT8         unused_field0;
-    const char    system_id[32];
-    const char    volume_id[32];
+    CONST CHAR8   system_id[32];
+    CONST CHAR8   volume_id[32];
     UINT8         unused_field1[8];
     UINT32        volume_space_size;
     UINT32        msb_volume_space_size;
@@ -54,16 +54,25 @@ typedef struct
 typedef struct
 {
     UINT8         type;
-    const char    id[5];
+    CONST CHAR8    id[5];
     UINT8         version;
     UINT8         data[2041];
 } __attribute__((packed)) VolumeDescriptor;
 
-// The buffer in memory for disk reads. Hopefully it never overflows into code (though it would have to fill up into 0x7C00)
-static UINT8  *buffer = (UINT8*)0x1000;
+// The buffer in memory for disk reads
+static UINT8  *buffer;
 
-// The buffer in memory for load_file method--this probably can optimized away
-static char   *name_buffer = (char*)0x900;
+// The buffer in memory for load_file method
+static CHAR8   *name_buffer;
+
+void iso9660_allocate_buffers(EFI_SYSTEM_TABLE *ST)
+{
+    EFI_STATUS Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, 0x8000, &buffer);
+    ERR(Status, L"There was an error allocating a pool for loaded sectors!\r\n");
+
+    Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, 0x100, &name_buffer);
+    ERR(Status, L"There was an error allocating a pool for names!\r\n");
+}
 
 /*
 *   Reads the LBA into memory and ensures it is a valid ISO 9660 volume descriptor
@@ -73,7 +82,7 @@ VolumeDescriptor *read_volume_descriptor(AtaDevice *device, UINT32 lba)
 {
     atapi_read_sector(device, lba, 1, buffer);
 
-    if(strcmp((const char *)(buffer + 1), "CD001", 5))
+    if(strcmp(((CHAR8*) buffer) + 1, (CHAR8*) "CD001", 5))
     {
         if(*(buffer + 6) == 0x1)
         {
@@ -97,6 +106,7 @@ DirectoryRecord *load_root_directory(PrimaryVolumeDescriptor *pvd, AtaDevice *de
 {
     DirectoryRecord *root = (DirectoryRecord*)pvd->root_directory;
 
+    Print(L"Loading sector 0x%x for root directory\r\n", root->directory_extent_lba);
     atapi_read_sector(device, root->directory_extent_lba, root->directory_extent_length / device->capacity.block_size, buffer);
 
     DirectoryRecord *record = (DirectoryRecord*)buffer;
@@ -110,7 +120,7 @@ DirectoryRecord *load_root_directory(PrimaryVolumeDescriptor *pvd, AtaDevice *de
 *   Filenames are delimited by forward slashes ('/')
 *   Returns a pointer to the loaded file
 */
-UINT8 *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *device)
+UINT8 *load_file(const CHAR8 *filename, DirectoryRecord *directory, AtaDevice *device)
 {
     UINT8 name_length = 0;
     /* 
@@ -130,7 +140,7 @@ UINT8 *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *de
         while(directory->record_length)
         {
             // If the name is what we are looking for, then load it!
-            if(strcmp(directory->file_identifier, name_buffer, name_length))
+            if(strcmp((CHAR8*) directory->file_identifier, name_buffer, name_length))
             {
                 UINT8 sectors = directory->directory_extent_length / device->capacity.block_size;
 
@@ -166,7 +176,9 @@ UINT8 *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *de
         }
     }
 
-    Print(L"Couldn't find '%s'...\r\n", name_buffer);
+    Print(L"Couldn't find '");
+    PrintString((CHAR8*) filename);
+    Print(L"'...\r\n");
 
     return NULL;
 }

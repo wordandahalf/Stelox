@@ -6,7 +6,7 @@
 typedef struct
 {
     UINT8         magic;
-    const char    magic_text[3];
+    const CHAR8   magic_text[3];
     UINT8         arch;
     UINT8         endianess;
     UINT8         header_version;
@@ -15,9 +15,9 @@ typedef struct
     UINT16        type;
     UINT16        instruction_set;
     UINT32        elf_version;
-    UINT32        program_entry_position;
-    UINT32        program_header_table_position;
-    UINT32        section_header_table_position;
+    UINT64        program_entry_position;
+    UINT64        program_header_table_position;
+    UINT64        section_header_table_position;
     UINT32        flags;
     UINT16        header_length;
     UINT16        program_header_entry_size;
@@ -25,18 +25,18 @@ typedef struct
     UINT16        section_header_entry_size;
     UINT16        section_header_entry_number;
     UINT16        section_names_offset;
-} ElfHeader;
+} __attribute__((packed)) ElfHeader;
 
 typedef struct
 {
     UINT32        type;
-    UINT32        data_offset;
-    UINT32        load_address;
-    UINT32        undefied;
-    UINT32        data_size;
-    UINT32        memory_size;
     UINT32        flags;
-    UINT32        alignment;
-} ElfProgramHeader;
+    UINT64        data_offset;
+    UINT64        load_address;
+    UINT64        undefied;
+    UINT64        data_size;
+    UINT64        memory_size;
+    UINT64        alignment;
+} __attribute__((packed)) ElfProgramHeader;
 
 #endif

@@ -79,10 +79,10 @@ typedef struct
 {
     UINT16        flags;
     UINT16        unused1[9];
-    char            serial[20];
+    CHAR8         serial[20];
     UINT16        unused2[3];
-    char            firmware[8];
-    char            model[40];
+    CHAR8         firmware[8];
+    CHAR8         model[40];
     UINT16        sectors_per_int;
     UINT16        unused3;
     UINT16        capabilities[2];
@@ -104,9 +104,9 @@ typedef struct
 
 typedef struct
 {
-    UINT16        io_base;
-    UINT16        control;
-    bool            is_slave;
+    UINT16          io_base;
+    UINT16          control;
+    BOOLEAN         is_slave;
     AtaDriveType    type;
     AtaIdentity     identity;
     AtaCapacity     capacity;
@@ -119,10 +119,10 @@ typedef union {
 
 // The four ATAPIO devices, a master and a slave for each bus
 
-static AtaDevice ata_primary_master     = {.io_base = ATA_PRIMARY_IO_BASE,      .control = ATA_PRIMARY_CONTROL_BASE,    .is_slave = false,  .type=ATA_UNSCANNED_DRIVE};
-static AtaDevice ata_primary_slave      = {.io_base = ATA_PRIMARY_IO_BASE,      .control = ATA_PRIMARY_CONTROL_BASE,    .is_slave = true,   .type=ATA_UNSCANNED_DRIVE};
-static AtaDevice ata_secondary_master   = {.io_base = ATA_SECONDARY_IO_BASE,    .control = ATA_SECONDARY_CONTROL_BASE,  .is_slave = false,  .type=ATA_UNSCANNED_DRIVE};
-static AtaDevice ata_secondary_slave    = {.io_base = ATA_SECONDARY_IO_BASE,    .control = ATA_SECONDARY_CONTROL_BASE,  .is_slave = true,   .type=ATA_UNSCANNED_DRIVE};
+static AtaDevice ata_primary_master     = {.io_base = ATA_PRIMARY_IO_BASE,      .control = ATA_PRIMARY_CONTROL_BASE,    .is_slave = FALSE,  .type=ATA_UNSCANNED_DRIVE};
+static AtaDevice ata_primary_slave      = {.io_base = ATA_PRIMARY_IO_BASE,      .control = ATA_PRIMARY_CONTROL_BASE,    .is_slave = TRUE,   .type=ATA_UNSCANNED_DRIVE};
+static AtaDevice ata_secondary_master   = {.io_base = ATA_SECONDARY_IO_BASE,    .control = ATA_SECONDARY_CONTROL_BASE,  .is_slave = FALSE,  .type=ATA_UNSCANNED_DRIVE};
+static AtaDevice ata_secondary_slave    = {.io_base = ATA_SECONDARY_IO_BASE,    .control = ATA_SECONDARY_CONTROL_BASE,  .is_slave = TRUE,   .type=ATA_UNSCANNED_DRIVE};
 
 /*
 * ATA drives require a small delay after selection in order to push their status onto the bus
