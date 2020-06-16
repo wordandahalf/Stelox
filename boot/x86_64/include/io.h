@@ -31,17 +31,7 @@ inline UINT16 inw(UINT16 port)
     return ret;
 }
 
-inline void *memcpy(void *restrict dest, const void *restrict src, INT64 length)
-{
-    asm volatile (
-        "cld; rep movsb"
-        : "=c"((int){0})
-        : "D"(dest), "S"(src), "c"(length)
-        : "flags", "memory"
-    );
-
-    return dest;
-}
+extern void *memcpy(void *restrict dest, const void *restrict src, INT64 length);
 
 BOOLEAN strcmp(CONST CHAR8 s0[], CONST CHAR8 s1[], UINT8 length)
 {
