@@ -7,6 +7,7 @@
 #include "ata.h"
 #include "iso9660.h"
 #include "elf.h"
+#include "multiboot2.h"
 
 const CHAR8 KERNEL_FILE_NAME[] = "KERNEL/KERNEL64.ELF";
 
@@ -58,50 +59,20 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
                     ElfProgramHeader *header_table = (ElfProgramHeader*)((UINT64) elf_header + elf_header->program_header_table_position);
 
-                    ElfProgramHeader text_header = header_table[0];
-                    ElfProgramHeader data_header = header_table[1];
+                    ElfProgramHeader *text_header = header_table;
+                    ElfProgramHeader *data_header = (ElfProgramHeader*) ((UINT64) header_table + elf_header->program_header_entry_size);
 
-                    if(text_header.type == 0x1 && text_header.flags == 0b101)
-                    {
-                        // Load the text header!
-                        UINT64 src = ((UINT64) elf_header) + text_header.data_offset;
-
-                        memcpy((void *restrict)text_header.load_address, (const void *restrict)src, text_header.data_size);
-                    }
-                    else
-                    {
-                        
-                    }
+                    VOID *text_ptr = (VOID*) ((UINT64) elf_header + text_header->data_offset);
+                    VOID *data_ptr = (VOID*) ((UINT64) elf_header + data_header->data_offset);
                     
-                    if(data_header.type == 0x1 && data_header.flags == 0b110)
-                    {
-                        // Load the data header!
-                        UINT64 src = ((UINT64) elf_header) + data_header.data_offset;
-                        memcpy((void *restrict)data_header.load_address, (const void *restrict)src, data_header.data_size);
-                    }
-                    else
-                    {
+                    memcpy((VOID *restrict) text_header->load_address, text_ptr, text_header->data_size);
+                    memcpy((VOID *restrict) data_header->load_address, data_ptr, data_header->data_size);
 
-                    }
-
-                    // Parse the multiboot header
-                
-                    UINT64 *ptr = (UINT64*)text_header.load_address;
-
-                    while(*ptr != 0xE85250D6) // magic number
-                        ptr++;
-
-                    UINT64 header_size = *(ptr + 2);
-                    UINT64 code_address = ((UINT64) ptr) + header_size;
-
-                    Print(L"Jumping to 0x%x\r\n", code_address);
-                    
-                    for(;;);
-
-                    void (*kernel_main)(void) = (void*)code_address;
+                    VOID (*kernel_main)(VOID) = (VOID*) multiboot2_find_and_parse_header(text_header->load_address);
                     kernel_main();
 
-                    Print(L"Returned from kernel!");
+                    Print(L"Returned from kernel!\r\n");
+                    for(;;);
                 }
                 else
                 {
