@@ -22,18 +22,30 @@ typedef struct
     MultibootHeaderTag      tags[];
 } __attribute__((packed)) MultibootHeader;
 
-UINT64 multiboot2_find_and_parse_header(UINT64 start_address)
+MultibootHeader *multiboot2_parse_header(UINT64 start_address)
 {
-    UINT32 *ptr = (UINT32*) start_address;
+    UINT32 *header_ptr = (UINT32*) start_address;
 
-    while(*ptr != MULTIBOOT2_MAGIC)
-        ptr += 4;
+    // As per 3.1 of the specifications, the header must be 8-byte aligned and within the first 32768 bytes of the image.
+    for(UINT16 off = 0; off < 0x8000; off += 8)
+    {
+        if(*(header_ptr + off) == MULTIBOOT2_MAGIC)
+        {
+            return (UINT64) header_ptr + off;
+        }
+    }
 
-    MultibootHeader *header = (MultibootHeader*) ptr;
+    return NULL;
+}
 
-    // Actually parse here
+void multiboot2_execute_image(UINT64 start_address)
+{
+    MultibootHeader *header = (MultibootHeader*) multiboot2_parse_header(start_address);
 
-    return ((UINT64) header) + header->header_length;
+    if(header)
+    {
+        
+    }
 }
 
 #endif

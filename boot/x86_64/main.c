@@ -65,11 +65,11 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
                     VOID *text_ptr = (VOID*) ((UINT64) elf_header + text_header->data_offset);
                     VOID *data_ptr = (VOID*) ((UINT64) elf_header + data_header->data_offset);
                     
+                    // Copy the .text and .data sections of the ELF into memory
                     memcpy((VOID *restrict) text_header->load_address, text_ptr, text_header->data_size);
                     memcpy((VOID *restrict) data_header->load_address, data_ptr, data_header->data_size);
 
-                    VOID (*kernel_main)(VOID) = (VOID*) multiboot2_find_and_parse_header(text_header->load_address);
-                    kernel_main();
+                    multiboot2_execute_image(text_header->load_address);
 
                     Print(L"Returned from kernel!\r\n");
                     for(;;);
