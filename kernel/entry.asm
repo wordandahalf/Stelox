@@ -11,17 +11,18 @@ HEADER_LENGTH	equ	multiboot_end - multiboot_start
 ; forced to be within the first 8 KiB of the kernel file.
 section .multiboot
 multiboot_start:
-align 4
+align 8
 	dd 	MAGIC
 	dd 	ARCHITECTURE
 	dd 	HEADER_LENGTH
 	dd 	CHECKSUM
+	
 	; MB2 tags are of the following format:
 	; u16 type
 	; u16 flags
 	; u32 size
 	
-	; Terminator flag
+	; Terminator tag
 	dw	0x0
 	dw	0x0
 	dd	0x8
