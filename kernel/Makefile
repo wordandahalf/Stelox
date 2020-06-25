@@ -23,10 +23,10 @@ NASM_i386_FLAGS			= -felf32
 
 # Platform-dependent variables
 
-GCC_x86_64_FLAGS		= -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -O2 -Wall -Wextra -fno-exceptions -fno-rtti
+GCC_x86_64_FLAGS		= -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -O2 -Wall -Wextra -fno-exceptions -fno-rtti -fno-pic -fno-pie
 GCC_i386_FLAGS			= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti
 
-LINK_x86_64_FLAGS		= -O2 -lgcc -nostdlib -no-pie -z max-page-size=0x1000
+LINK_x86_64_FLAGS		= -O2 -lgcc -nostdlib -z max-page-size=0x1000
 LINK_i386_FLAGS			= -O2 -lgcc -nostdlib
 
 # Kernel variables
