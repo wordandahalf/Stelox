@@ -9,11 +9,11 @@ It is not recommended to try to build each component individually--the `Makefile
 
 Nevertheless, to build Stelox, run `make [run] ARCH=<name> [CROSS=<path to bin/ + target>]`
 
-An El-Torito ISO will be generated at `build/images/stelox.iso`
+An El-Torito ISO will be generated at `build/images/stelox-<arch>.iso`
 
-#### Current supported architectures:
+#### Currently supported architectures:
 
-| Name     | Support              | Dependencies |
+| Name     | Platform              | Dependencies |
 |-----------|----------------------|------|
 | `i386`      | 32-bit x86 + BIOS        | `gcc`, `ld`, `objcopy`, `nasm`, `xorriso`    |
 | `x86_64`    | 64-bit x86 + UEFI        | `gcc`, `ld`, `objcopy`, `xorriso`, `mkfs.fat`, `mcopy`    |
@@ -22,6 +22,8 @@ An El-Torito ISO will be generated at `build/images/stelox.iso`
 **Note:** Unless compiled on a 32-bit host, `i386` requires a cross-compiler to  be passed
 > For example, if your cross-compiler GCC is located at `/opt/cross/bin/i686-elf-gcc`
 > pass `CROSS=/opt/cross/bin/i686-elf` with the `make` command.
+
+On `i386`, the bootloader supports (optionally) Multiboot2-complaint ELF32 images. For `x86_64`, it only supports ELF64 images, due to the lack of 64-bit inclusion in the MB2 standard. In the future I hope to refactor the build system so that the built-in bootloader could be easily switched out with GRUB2.
 
 ### Branches
 `#master`: The most stable up-to-date features
