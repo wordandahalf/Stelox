@@ -10,14 +10,7 @@
 #include "ata.h"
 #include "iso9660.h"
 #include "elf.h"
-
-void run_kernel(uint32_t address)
-{
-    log("Jumping to kernel at 0x%x", INFO, address);
-
-    void (*kernel_main)(void) = (void*)address;
-    kernel_main();
-}
+#include "multiboot2.h"
 
 void read_kernel(AtaDevice *device)
 {
@@ -70,17 +63,8 @@ void read_kernel(AtaDevice *device)
 
                     }
 
-                    // Parse the multiboot header
-                
-                    uint32_t *ptr = (uint32_t*)text_header.load_address;
-
-                    while(*ptr != 0xE85250D6) // magic number
-                        ptr++;
-
-                    uint32_t header_size = *(ptr + 2);
-                    uint32_t code_address = ((uint32_t) ptr) + header_size;
-
-                    run_kernel(code_address);
+                    // Execute the image
+                    multiboot2_execute_image(text_header.load_address);
 
                     log("Returned from kernel!", ERROR);
                     for(;;);
