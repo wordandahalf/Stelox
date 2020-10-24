@@ -1,6 +1,8 @@
 #ifndef __ISO9660_H_
 #define __ISO9660_H_
 
+#include "terminal.h"
+
 typedef struct
 {
     uint8_t         record_length;
@@ -74,7 +76,7 @@ VolumeDescriptor *read_volume_descriptor(AtaDevice *device, uint32_t lba)
     {
         if(*(buffer + 6) == 0x1)
         {
-            log("Found volume descriptor at LBA 0x%x", TERMINAL_INFO_LOG, lba);
+            log("Found volume descriptor at LBA 0x%x", INFO, lba);
 
             VolumeDescriptor *descriptor = (VolumeDescriptor*)buffer;
 
@@ -158,12 +160,12 @@ uint8_t *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *
             else
             {
                 // Go to the next entry
-                directory = (DirectoryRecord*) ((uint32_t) directory + directory->record_length);
+                directory = (DirectoryRecord*) ((uintptr_t) directory + directory->record_length);
             }
         }
     }
 
-    log("Couldn't find '%s'...", TERMINAL_ERROR_LOG, name_buffer);
+    log("Couldn't find '%s'...", ERROR, name_buffer);
 
     return NULL;
 }

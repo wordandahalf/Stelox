@@ -26,12 +26,12 @@ MultibootHeader *multiboot2_parse_header(UINT64 start_address)
 {
     UINT32 *header_ptr = (UINT32*) start_address;
 
-    // As per 3.1 of the specifications, the header must be 8-byte aligned and within the first 32768 bytes of the image.
+    // As per 3.1 of the specification, the header must be 8-byte aligned and within the first 32768 bytes of the image.
     for(UINT16 off = 0; off < 0x8000; off += 8)
     {
         if(*(header_ptr + off) == MULTIBOOT2_MAGIC)
         {
-            return (UINT64) header_ptr + off;
+            return (MultibootHeader*) (header_ptr + off);
         }
     }
 
@@ -44,7 +44,7 @@ void multiboot2_execute_image(UINT64 start_address)
 
     if(header)
     {
-        
+        Print(L"Found Multiboot 2 header!\r\n");
     }
 }
 

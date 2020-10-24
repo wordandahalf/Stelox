@@ -1,10 +1,9 @@
-#ifndef __TERMINAL_H_
-#define __TERMINAL_H_
+#ifndef __TERMINAL_IMPL_H_
+#define __TERMINAL_IMPL_H_
 
-typedef enum {
-    TERMINAL_INFO_LOG,
-    TERMINAL_ERROR_LOG,
-} TerminalLogType;
+#include "terminal.h"
+#include "types.h"
+#include "io.h"
 
 typedef struct {
     uint16_t *buffer;
@@ -32,7 +31,19 @@ Terminal terminal = {
     .height = 25,
 };
 
-char itoa_buffer[256];
+void terminal_init()
+{
+    itoa_buffer = char[256];
+
+    terminal.buffer = (unsigned short*) 0xB8000;
+
+    for(int i = 0; i < terminal.width * terminal.height; i++)
+    {
+        terminal.buffer[i] = create_vga_character(' ', create_vga_color(0xf,0x0));
+    }
+
+    terminal.buffer = (unsigned short*) 0xB8000;
+}
 
 inline uint8_t create_vga_color(uint8_t foreground, uint8_t background)
 {
@@ -42,18 +53,6 @@ inline uint8_t create_vga_color(uint8_t foreground, uint8_t background)
 inline uint16_t create_vga_character(uint8_t c, uint8_t color)
 {
     return (short) c | (short) color << 8;
-}
-
-void terminal_init()
-{
-    terminal.buffer = (unsigned short*) 0xB8000;
-
-    for(int i = 0; i < terminal.width * terminal.height; i++)
-    {
-        terminal.buffer[i] = create_vga_character(' ', create_vga_color(0xf,0x0));
-    }
-
-    terminal.buffer = (unsigned short*) 0xB8000;
 }
 
 void update_cursor(Terminal terminal)
@@ -83,62 +82,6 @@ void put_char(char ch)
     terminal.buffer[terminal.selected_column + (terminal.selected_row * terminal.width)] = create_vga_character(ch, terminal.current_color);
 
     update_cursor(terminal);
-}
-
-void put_string(char *str)
-{
-    for(int i = 0; str[i]; i++)
-        put_char(str[i]);
-}
-
-char *itoa(int64_t value, bool is_signed, uint8_t base, char *result)
-{
-    if(base < 2 || base > 36) { *result = '\0'; return result; }
-
-    char *ptr = result, *ptr1 = result, tmp_char;
-
-    if(is_signed)
-    {
-        int64_t tmp_value;
-
-        do
-        {
-            tmp_value = value;
-            value /= base;
-            *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - value * base)];
-        } while(value && ((ptr - result) < 256)); // We don't want a buffer overflow--the buffer is 256 chars long
-
-        if(tmp_value < 0) *ptr++ = '-';
-    }
-    else
-    {
-        uint64_t unsigned_value = value & 0xFFFFFFFF;
-        uint64_t tmp_value;
-
-        do
-        {
-            tmp_value = unsigned_value;
-            unsigned_value /= base;
-            *ptr++ = "ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[35 + (tmp_value - unsigned_value * base)];
-        } while(unsigned_value && ((ptr - result) < 256)); // We don't want a buffer overflow--the buffer is 256 chars long
-    }
-    
-    *ptr-- = '\0';
-
-    // This flips the chars; the previous few lines converts the int from most-significant digit to least
-    while(ptr1 < ptr)
-    {
-        tmp_char = *ptr;
-        *ptr-- = *ptr1;
-        *ptr1++ = tmp_char;
-    }
-
-    return result;
-}
-
-void put_int(int64_t value, bool is_signed, uint8_t base)
-{
-    put_string(itoa(value, is_signed, base, itoa_buffer));
 }
 
 void vprintf(const char *fmt, va_list arg)
@@ -204,45 +147,6 @@ void vprintf(const char *fmt, va_list arg)
             put_char(fmt[i]);
         }
     }
-}
-
-void printf(char *fmt, ...)
-{
-    va_list var; 
-    va_start(var, fmt);
-    vprintf(fmt, var);
-    va_end(var);
-}
-
-void log(char *fmt, TerminalLogType type, ...)
-{
-    va_list var; 
-
-    uint8_t type_foreground_color = 0x0;
-    uint8_t text_foreground_color = 0x7;
-    char    *text = "";
-    
-    switch(type)
-    {
-        case TERMINAL_INFO_LOG:
-            type_foreground_color = 0xD;
-            text = "INFO";
-            break;
-        case TERMINAL_ERROR_LOG:
-            type_foreground_color = 0x4;
-            text_foreground_color = 0xF;
-            text = "ERR ";
-    }
-    
-    printf("[%<%s%@] ", create_vga_color(type_foreground_color, 0x0), text);
-
-    printf("%<", create_vga_color(text_foreground_color, 0x0));
-    va_start(var, type);
-    vprintf(fmt, var);
-    va_end(var);
-    printf("%@");
-
-    put_char('\n');
 }
 
 #endif

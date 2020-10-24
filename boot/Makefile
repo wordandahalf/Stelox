@@ -29,6 +29,8 @@ NASM					= nasm
 
 # UEFI (x86-64) build variables
 
+COMMON_INCLUDE_FOLDER	= $(BASE_BOOT_FOLDER)/common/include
+
 UEFI_BOOTLOADER_FOLDER	= $(BASE_BOOT_FOLDER)/x86_64
 UEFI_BUILD_FOLDER		= $(BASE_BUILD_FOLDER)/x86_64/boot
 UEFI_INCLUDE_FOLDER 	= $(UEFI_BOOTLOADER_FOLDER)/include
@@ -63,7 +65,7 @@ GNU_EFI_SCRIPT			= $(BASE_UTILS_FOLDER)/get-gnu-efi.sh
 
 # UEFI build command arguments
 
-UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -fno-stack-protector -fpic -fshort-wchar -ffreestanding -mno-red-zone -Wall -Wextra -O2 -DEFI_FUNCTION_WRAPPER 
+UEFI_CFLAGS      		:= -I$(UEFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER) -I$(GNU_EFI_INCLUDE_FOLDER)/x86_64 -I$(GNU_EFI_INCLUDE_FOLDER)/protocol -I$(COMMON_INCLUDE_FOLDER) -fno-stack-protector -fpic -fshort-wchar -ffreestanding -mno-red-zone -Wall -Wextra -O2 -DEFI_FUNCTION_WRAPPER 
 
 UEFI_LDFLAGS     		:= -nostdlib -znocombreloc -T $(GNU_EFI_ELF_LDS) -shared -Bsymbolic -L $(GNU_EFI_EFI_LIBRARY_FOLDER) -L $(GNU_EFI_LIBRARY_FOLDER) $(GNU_EFI_CRT_OBJ)
 
@@ -91,7 +93,7 @@ BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
 # BIOS (x86) build command variables
 
 BIOS_NASM_FLAGS			= -f elf32
-BIOS_CFLAGS				= -fno-pie -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER)
+BIOS_CFLAGS				= -fno-pie -ffreestanding -O2 -Wall -Wextra -I$(BIOS_INCLUDE_FOLDER) -I$(COMMON_INCLUDE_FOLDER)
 
 ifdef ARCH
 ifneq ($(ARCH),$(shell arch))

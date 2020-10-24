@@ -2,11 +2,12 @@
 
 #include "types.h"
 #include "io.h"
+#include "memory_map.h"
 
 #include "terminal.h"
-#include "ata.h"
+#include "terminal_impl.h"
 
-#include "memory_map.h"
+#include "ata.h"
 #include "iso9660.h"
 #include "elf.h"
 
@@ -35,16 +36,16 @@ void read_kernel(AtaDevice *device)
 
             if(file)
             {
-                ElfHeader *elf_header = (ElfHeader*)file;
+                Elf32Header *elf_header = (Elf32Header*)file;
 
                 if(strcmp(elf_header->magic_text, "ELF", 3))
                 {
                     log("Loaded kernel ELF at 0x%x", TERMINAL_INFO_LOG, file);
 
-                    ElfProgramHeader *header_table = (ElfProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
+                    Elf32ProgramHeader *header_table = (Elf32ProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
 
-                    ElfProgramHeader text_header = header_table[0];
-                    ElfProgramHeader data_header = header_table[1];
+                    Elf32ProgramHeader text_header = header_table[0];
+                    Elf32ProgramHeader data_header = header_table[1];
 
                     if(text_header.type == 0x1 && text_header.flags == 0b101)
                     {
