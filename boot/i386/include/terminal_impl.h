@@ -31,9 +31,19 @@ Terminal terminal = {
     .height = 25,
 };
 
+inline uint8_t create_vga_color(uint8_t foreground, uint8_t background)
+{
+    return foreground | background << 4;
+}
+
+inline uint16_t create_vga_character(uint8_t c, uint8_t color)
+{
+    return (short) c | (short) color << 8;
+}
+
 void terminal_init()
 {
-    itoa_buffer = char[256];
+    itoa_buffer = (char*) 0x6900;
 
     terminal.buffer = (unsigned short*) 0xB8000;
 
@@ -43,16 +53,6 @@ void terminal_init()
     }
 
     terminal.buffer = (unsigned short*) 0xB8000;
-}
-
-inline uint8_t create_vga_color(uint8_t foreground, uint8_t background)
-{
-    return foreground | background << 4;
-}
-
-inline uint16_t create_vga_character(uint8_t c, uint8_t color)
-{
-    return (short) c | (short) color << 8;
 }
 
 void update_cursor(Terminal terminal)
