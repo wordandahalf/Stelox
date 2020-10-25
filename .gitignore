@@ -13,3 +13,4 @@ utils/*/
 
 logfile.txt
 bochs.log
+bx_enh_dbg.ini
