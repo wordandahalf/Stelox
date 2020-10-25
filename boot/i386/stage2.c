@@ -4,11 +4,10 @@
 #include "io.h"
 #include "memory_map.h"
 
-#include "terminal.h"
 #include "terminal_impl.h"
 
 #include "ata.h"
-#include "iso9660.h"
+#include "iso9660_impl.h"
 #include "elf.h"
 #include "multiboot2.h"
 
@@ -17,78 +16,75 @@ void read_kernel(AtaDevice *device)
     // The PVD is always located at sector 16 (0x10) in the image
     VolumeDescriptor *descriptor = read_volume_descriptor(device, 0x10);
 
-    if(descriptor)
+    if(!descriptor)
     {
-        // PVDs have a type of 1
-        if(descriptor->type == 0x1)
-        {
-            PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
-            DirectoryRecord *directory_record = load_root_directory(pvd, device);
+        log("Couldn't find volume descriptor!", ERROR);
+        goto error;
+    }
 
-            uint8_t *file = load_file("KERNEL/KERNEL32.ELF", directory_record, device);
+    // PVDs have a type of 1
+    if(descriptor->type != 0x1)
+    {
+        log("Couldn't find primary volume descriptor!", ERROR);
+        goto error;
+    }
 
-            if(file)
-            {
-                Elf32Header *elf_header = (Elf32Header*)file;
+    PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
+    DirectoryRecord *directory_record = load_root_directory(pvd, device);
 
-                if(strcmp(elf_header->magic_text, "ELF", 3))
-                {
-                    log("Loaded kernel ELF at 0x%x", INFO, file);
+    uint8_t *file = load_file("KERNEL/KERNEL32.ELF", directory_record, device);
 
-                    Elf32ProgramHeader *header_table = (Elf32ProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
+    // file will be a null pointer if it was unable to be found
+    if(!file)
+    {
+        log("Couldn't find kernel!", ERROR);
+        goto error;
+    }
 
-                    Elf32ProgramHeader text_header = header_table[0];
-                    Elf32ProgramHeader data_header = header_table[1];
+    Elf32Header *elf_header = (Elf32Header*)file;
 
-                    if(text_header.type == 0x1 && text_header.flags == 0b101)
-                    {
-                        // Load the text header!
-                        uint32_t src = ((uint32_t) elf_header) + text_header.data_offset;
+    if(!strcmp(elf_header->magic_text, "ELF", 3))
+    {
+        log("Kernel is not a valid ELF image!", ERROR);
+        goto error;
+    }
 
-                        memcpy((void *restrict)text_header.load_address, (const void *restrict)src, text_header.data_size);
-                    }
-                    else
-                    {
-                        
-                    }
-                    
-                    if(data_header.type == 0x1 && data_header.flags == 0b110)
-                    {
-                        // Load the data header!
-                        uint32_t src = ((uint32_t) elf_header) + data_header.data_offset;
-                        memcpy((void *restrict)data_header.load_address, (const void *restrict)src, data_header.data_size);
-                    }
-                    else
-                    {
+    log("Loaded kernel ELF at 0x%x", INFO, file);
 
-                    }
+    Elf32ProgramHeader *header_table = (Elf32ProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
 
-                    // Execute the image
-                    multiboot2_execute_image(text_header.load_address);
+    Elf32ProgramHeader text_header = header_table[0];
+    Elf32ProgramHeader data_header = header_table[1];
 
-                    log("Returned from kernel!", ERROR);
-                    for(;;);
-                }
-                else
-                {
-                    log("Kernel is not a valid ELF image!", ERROR);
-                }
-            }
-            else
-            {
-                log("Couldn't find kernel!", ERROR);
-            }
-        }
-        else
-        {
-            log("Couldn't find primary volume descriptor!", ERROR);
-        }
+    if(text_header.type == 0x1 && text_header.flags == 0b101)
+    {
+        // Load the text header!
+        uint32_t src = ((uint32_t) elf_header) + text_header.data_offset;
+        memcpy((void *restrict)text_header.load_address, (const void *restrict)src, text_header.data_size);
     }
     else
     {
-        log("Couldn't find volume descriptor!", ERROR);
+        
+    }
+    
+    if(data_header.type == 0x1 && data_header.flags == 0b110)
+    {
+        // Load the data header!
+        uint32_t src = ((uint32_t) elf_header) + data_header.data_offset;
+        memcpy((void *restrict)data_header.load_address, (const void *restrict)src, data_header.data_size);
+    }
+    else
+    {
+
     }
 
+    // Execute the image
+    multiboot2_execute_image(text_header.load_address);
+
+    log("Returned from kernel!", ERROR);
+    for(;;);
+
+    error:
     log("Try rebooting or recreating your media...", ERROR);
 }
 
@@ -120,6 +116,8 @@ int loader_main(void)
 
     AtaDevice *device = ata_detect_devices(ATA_PATAPI_DRIVE);
     log("Found a %uKB CD-ROM", INFO, (device->capacity.lba_count * device->capacity.block_size) / 1024);
+
+    iso9660_allocate_buffers();
 
     if(device)
         read_kernel(device);

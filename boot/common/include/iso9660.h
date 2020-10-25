@@ -59,10 +59,12 @@ typedef struct
 } __attribute__((packed)) VolumeDescriptor;
 
 // The buffer in memory for disk reads. Hopefully it never overflows into code (though it would have to fill up into 0x7C00)
-static uint8_t  *buffer = (uint8_t*)0x1000;
+static uint8_t  *buffer;
 
 // The buffer in memory for load_file method--this probably can optimized away
-static char     *name_buffer = (char*)0x900;
+static char     *name_buffer;
+
+void iso9660_allocate_buffers();
 
 /*
 *   Reads the LBA into memory and ensures it is a valid ISO 9660 volume descriptor
