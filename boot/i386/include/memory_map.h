@@ -8,16 +8,16 @@ typedef struct
     uint64_t        base_address;
     uint64_t        length;
     uint32_t        type;
-    uint32_t        attributes;
-} MemoryMapEntry;
+    uint32_t        extended_attributes;
+}__attribute__((packed)) MemoryMapEntry;
 
 typedef struct
 {
-    uint32_t        length;
+    uint8_t         length;
     MemoryMapEntry  *entries;
-} MemoryMap;
+}__attribute__((packed)) MemoryMap;
 
-MemoryMap       memory_map;
+MemoryMap memory_map;
 
 static void memory_map_init()
 {

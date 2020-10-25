@@ -8,14 +8,14 @@ jmp stage1
 
 loading_message     db  "Loading...", 0xD, 0xA, 0x0
 
-error_message  db  "Unrecoverable error, please try restarting...", 0xD, 0xA, 0x0
+error_message       db  "Unrecoverable error, please try restarting...", 0xD, 0xA, 0x0
 
 global stage1
 stage1:
     mov     si, loading_message
     call    print_string
 
-    call    do_e820
+    call    get_memory_map
 
     call    enable_a20
     cmp     ax, 0x1                     ; The sub enable_a20 sets ax to 1 iff it successfully enabled the A20

@@ -99,7 +99,24 @@ int loader_main(void)
     log("Stelox v0.0.1 booted!", INFO);
 
     memory_map_init();
+    uint64_t free_memory = 0;
+    uint64_t reserved_memory = 0;
     log("Received memory map with %d entries", INFO, memory_map.length);
+    for(uint8_t i = 0; i < memory_map.length; i++)
+    {
+        printf("base_address=0x%X, length=0x%X, type=0x%X\n", memory_map.entries[i].base_address, memory_map.entries[i].length, memory_map.entries[i].type);
+        switch(memory_map.entries[i].type)
+        {
+            case 0x1:
+                free_memory += memory_map.entries[i].length;
+                break;
+            case 0x2:
+                reserved_memory += memory_map.entries[i].length;
+                break;
+        }
+    }
+    printf("free memory: 0x%X, %dMB\n", free_memory, free_memory / (1024 * 1024));
+    printf("reserved memory: 0x%X, %dKB\n", reserved_memory, reserved_memory / 1024);
 
     AtaDevice *device = ata_detect_devices(ATA_PATAPI_DRIVE);
     log("Found a %uKB CD-ROM", INFO, (device->capacity.lba_count * device->capacity.block_size) / 1024);
