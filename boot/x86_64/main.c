@@ -65,7 +65,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
         DirectoryRecord *directory_record = load_root_directory(pvd, device);
 
-        uint8_t *file = load_file(KERNEL_FILE_NAME, directory_record, device);
+        uintptr_t file = load_file(KERNEL_FILE_NAME, directory_record, device);
 
         if(file)
         {
