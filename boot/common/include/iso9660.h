@@ -109,9 +109,9 @@ DirectoryRecord *load_root_directory(PrimaryVolumeDescriptor *pvd, AtaDevice *de
 /*
 *   Loads the provided filename from the AtaDevice, using the DirectoryRecord pointer as the root directory
 *   Filenames are delimited by forward slashes ('/')
-*   Returns a pointer to the loaded file
+*   Returns the address of the loaded file or zero if there was an error 
 */
-uint8_t *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *device)
+uintptr_t load_file(const char *filename, DirectoryRecord *directory, AtaDevice *device)
 {
     uint8_t name_length = 0;
     /* 
@@ -149,7 +149,7 @@ uint8_t *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *
                 {
                     // Loaded the file!
 
-                    return cpy;
+                    return (uintptr_t) cpy;
                 }
                 else
                 if(filename[name_length] == '/')
@@ -169,7 +169,7 @@ uint8_t *load_file(const char *filename, DirectoryRecord *directory, AtaDevice *
 
     log("Couldn't find '%s'...", ERROR, name_buffer);
 
-    return NULL;
+    return 0;
 }
 
 #endif
