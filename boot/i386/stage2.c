@@ -32,7 +32,7 @@ void read_kernel(AtaDevice *device)
     PrimaryVolumeDescriptor *pvd = (PrimaryVolumeDescriptor*)descriptor;
     DirectoryRecord *directory_record = load_root_directory(pvd, device);
 
-    uint8_t *file = load_file("KERNEL/KERNEL32.ELF", directory_record, device);
+    uintptr_t file = load_file("KERNEL/KERNEL32.ELF", directory_record, device);
 
     // file will be a null pointer if it was unable to be found
     if(!file)
@@ -51,7 +51,7 @@ void read_kernel(AtaDevice *device)
 
     log("Loaded kernel ELF at 0x%x", INFO, file);
 
-    Elf32ProgramHeader *header_table = (Elf32ProgramHeader*)((uint32_t) elf_header + elf_header->program_header_table_position);
+    Elf32ProgramHeader *header_table = (Elf32ProgramHeader*)((uintptr_t) elf_header + elf_header->program_header_table_position);
 
     Elf32ProgramHeader text_header = header_table[0];
     Elf32ProgramHeader data_header = header_table[1];
@@ -59,7 +59,7 @@ void read_kernel(AtaDevice *device)
     if(text_header.type == 0x1 && text_header.flags == 0b101)
     {
         // Load the text header!
-        uint32_t src = ((uint32_t) elf_header) + text_header.data_offset;
+        uintptr_t src = ((uintptr_t) elf_header) + text_header.data_offset;
         memcpy((void *restrict)text_header.load_address, (const void *restrict)src, text_header.data_size);
     }
     else
@@ -70,7 +70,7 @@ void read_kernel(AtaDevice *device)
     if(data_header.type == 0x1 && data_header.flags == 0b110)
     {
         // Load the data header!
-        uint32_t src = ((uint32_t) elf_header) + data_header.data_offset;
+        uintptr_t src = ((uintptr_t) elf_header) + data_header.data_offset;
         memcpy((void *restrict)data_header.load_address, (const void *restrict)src, data_header.data_size);
     }
     else
