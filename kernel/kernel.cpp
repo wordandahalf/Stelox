@@ -11,8 +11,13 @@ void prints(const char *msg)
 }
 
 extern "C"
-void kernel_main(void)
+void kernel_main(unsigned long magic, unsigned long address)
 {
+    if(magic != 0x36d76289) {
+        prints("Was provided with an invalid MB2 magic!");
+        for(;;);
+    }
+
     prints("Hello, kernel!");
 
     for(;;);
