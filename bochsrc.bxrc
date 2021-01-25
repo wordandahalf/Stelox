@@ -7,6 +7,7 @@ memory: host=32, guest=32
 romimage: file="D:\Programs\Program Files (x86)\Bochs-2.6.9/BIOS-bochs-latest", address=0x0, options=none
 vgaromimage: file="D:\Programs\Program Files (x86)\Bochs-2.6.9/VGABIOS-lgpl-latest"
 boot: cdrom
+magic_break: enabled=1
 # no floppyb
 ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
 ata0-master: type=cdrom, path="build/images/stelox-i386.iso", status=inserted
