@@ -9,7 +9,7 @@
 #include "ata.h"
 #include "iso9660_impl.h"
 #include "elf.h"
-#include "multiboot2.h"
+#include "multiboot2_impl.h"
 
 void read_kernel(AtaDevice *device)
 {
@@ -88,7 +88,7 @@ void read_kernel(AtaDevice *device)
     log("Try rebooting or recreating your media...", ERROR);
 }
 
-int loader_main(void)
+void loader_main(void)
 {
     terminal_init();
 
@@ -125,6 +125,4 @@ int loader_main(void)
         log("Couldn't find the booted device--try rebooting?", ERROR);
 
     for(;;) {}
-
-    return 0;
 }

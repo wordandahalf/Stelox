@@ -10,7 +10,7 @@
 #include "ata.h"
 #include "iso9660.h"
 #include "elf.h"
-#include "multiboot2.h"
+#include "multiboot2_impl.h"
 
 const char KERNEL_FILE_NAME[] = "KERNEL/KERNEL64.ELF";
 
