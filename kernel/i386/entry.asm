@@ -53,17 +53,17 @@ stack_top:
 section .text
 global start:function (start.end - start)
 start:
-	mov esp, stack_top
+    mov esp, stack_top
  
     ; Pass the parameters to kernel_main by pushing them on the stack,
     ; first parameter last.
     push ebx
     push eax
 
-	extern kernel_main
-	call kernel_main
+    extern kernel_main
+    call kernel_main
  
-	cli
+    cli
 .hang:	hlt
-	jmp .hang
+    jmp .hang
 .end:
