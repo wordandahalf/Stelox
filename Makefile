@@ -39,7 +39,8 @@ run: $(ARCH)
 	$(QEMU_$(ARCH)) $(QEMU_$(ARCH)_FLAGS)
 else
 ifndef ARCH
-run	@echo "Please provide a supported architecture."
+run:
+	@echo "Please provide a supported architecture."
 	@echo "Supported architectures: $(SUPPORTED_ARCHITECTURES)"
 else
 run:
