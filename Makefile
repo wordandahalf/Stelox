@@ -21,7 +21,7 @@ BIOS_BOOT_IMAGE			= $(BASE_IMAGE_FOLDER)/boot.img
 # OVMF is a freely-available UEFI for QEMU
 OVMF_FOLDER				= $(BASE_UTILS_FOLDER)/OVMF
 OVMF					= $(OVMF_FOLDER)/OVMF.fd
-OVMF_URL				= https://dl.bintray.com/no92/vineyard-binary/OVMF.fd
+OVMF_URL				= https://retrage.github.io/edk2-nightly/bin/RELEASEX64_OVMF.fd
 
 QEMU_x86_64				= qemu-system-x86_64
 QEMU_x86_64_FLAGS		= -drive if=pflash,format=raw,file=$(OVMF) -cdrom $(STELOX_ISO) -net none -serial stdio -d guest_errors
