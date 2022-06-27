@@ -148,14 +148,12 @@ uintptr_t load_file(const char *filename, DirectoryRecord *directory, AtaDevice 
                 if(!filename[name_length] || directory->file_identifier[name_length] == ';')
                 {
                     // Loaded the file!
-
                     return (uintptr_t) cpy;
                 }
                 else
                 if(filename[name_length] == '/')
                 {
                     // Loaded another directory table
-
                     return load_file(filename + name_length + 1, (DirectoryRecord*)cpy, device);
                 }
             }

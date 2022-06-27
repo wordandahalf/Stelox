@@ -87,9 +87,13 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
                 memcpy((VOID *restrict) text_header->load_address, text_ptr, text_header->data_size);
                 memcpy((VOID *restrict) data_header->load_address, data_ptr, data_header->data_size);
 
-                multiboot2_execute_image(text_header->load_address);
+                // Allocate memory for the MB2 loader
+                EFI_STATUS Status = uefi_call_wrapper(ST->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(struct multiboot_boot_state), (void**)&boot_state);
+                ERR(Status, "There was an error allocating a pool for the Multiboot loader!\r\n");
 
-                log("Returned from kernel!", INFO);
+                multiboot2_boot(text_header->load_address);
+
+                log("Control relinquished to bootloader.", INFO);
                 for(;;);
             }
             else

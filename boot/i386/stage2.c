@@ -79,7 +79,7 @@ void read_kernel(AtaDevice *device)
     }
 
     // Execute the image
-    multiboot2_execute_image(text_header.load_address);
+    multiboot2_boot(text_header.load_address);
 
     log("Returned from kernel!", ERROR);
     for(;;);
