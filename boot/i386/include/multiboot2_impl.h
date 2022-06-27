@@ -4,23 +4,10 @@
 #include "types.h"
 #include "multiboot2.h"
 
-void multiboot2_execute_image(uintptr_t start_address)
+boot_state = (struct multiboot_boot_state*) (0x6900 - sizeof(struct multiboot_boot_state))
+
+void multiboot2_call_kernel(uintptr_t kernel_address, uintptr_t mbi_struct)
 {
-    struct multiboot_header *header = (struct multiboot_header*) multiboot2_find_header(start_address);
-    uintptr_t kernel_address = start_address;
-
-    if(header)
-    {
-        log("Found Multiboot 2 header!", INFO);
-        kernel_address += header->header_length;
-    }
-    else
-    {
-        log("Did not find Multiboot 2 header!", INFO);
-    }
-
-    log("Jumping to kernel at 0x%x!", INFO, kernel_address);
-
     asm volatile(
           "mov %1, %%eax\n\t"
           "mov %2, %%ebx\n\t"
@@ -28,7 +15,7 @@ void multiboot2_execute_image(uintptr_t start_address)
         :
         : "g" (kernel_address),
           "g" (MULTIBOOT2_BOOTLOADER_MAGIC),
-          "g" (header)
+          "g" (mbi_struct)
         : "eax", "ebx"
     );
 }
