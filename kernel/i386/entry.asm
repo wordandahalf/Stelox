@@ -4,8 +4,8 @@ ARCHITECTURE	equ	0x0
 CHECKSUM		equ	-(MAGIC + ARCHITECTURE + HEADER_LENGTH)
 HEADER_LENGTH	equ	multiboot_end - multiboot_start
  
-; Declare a multiboot header that marks the program as a kernel. These are magic
-; values that are documented in the multiboot standard. The bootloader will
+; Declare a MB2 header that marks the program as a kernel. These are magic
+; values that are documented in the MB2 standard. The bootloader will
 ; search for this signature in the first 8 KiB of the kernel file, aligned at a
 ; 32-bit boundary. The signature is in its own section so the header can be
 ; forced to be within the first 8 KiB of the kernel file.
@@ -24,6 +24,18 @@ align 8
 	;
 	; They signal to the bootloader information to provide to the OS
 	; or specific elements of the environment to set up.
+
+	dw 0x1		; Information request
+	dw 0x1		; Required
+	dd 0xC		; Size
+	dd 0x2		; List of information tag types: bootloader name
+
+	dw 0x5		; Framebuffer
+	dw 0x1		; Required
+	dd 0x14
+	dd 1024		; 1024x768 24bpp display mode
+	dd 768
+	dd 24
 
 	; Terminator tag
 	dw	0x0
