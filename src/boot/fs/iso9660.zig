@@ -2,10 +2,10 @@
 
 const std = @import("std");
 const uefi = std.os.uefi;
-const Console = @import("console.zig");
+const Console = @import("../console.zig");
 const utf16 = std.unicode.utf8ToUtf16LeStringLiteral;
 
-const utils = @import("utils.zig");
+const utils = @import("lib").utils;
 const NoPadding = utils.NoPadding;
 const ceilDiv = utils.ceilDiv;
 

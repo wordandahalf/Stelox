@@ -27,13 +27,13 @@ pub fn build(b: *std.Build) void {
     const lib_mod = b.addModule("lib", .{
         .root_source_file = b.path("lib/root.zig")
     });
+    lib_mod.addImport("lib", lib_mod);
 
     const bootloader_mod = b.addModule("bootloader", .{
         .root_source_file = b.path("src/boot/main.zig"),
         .target = b.resolveTargetQuery(bootloader_target),
         .optimize = mode
     });
-
     bootloader_mod.addImport("lib", lib_mod);
 
     const kernel_mod = b.addModule("kernel", .{
@@ -42,7 +42,6 @@ pub fn build(b: *std.Build) void {
         .optimize = mode,
         .code_model = .kernel
     });
-
     kernel_mod.addImport("lib", lib_mod);
 
     const bootloader_exe = b.addExecutable(.{

@@ -1,15 +1,20 @@
 const std = @import("std");
 const uefi = std.os.uefi;
 
-const mb2 = @import("lib").mb2;
-const Console = @import("console.zig");
-const ceilDiv = @import("utils.zig").ceilDiv;
+const lib = @import("lib");
+const mb2 = lib.mb2;
+const Console = @import("../console.zig");
+const utils = lib.utils;
 
 const State = struct {
+    // global state
     alloc: std.mem.Allocator,
     bs: *uefi.tables.BootServices,
     con: *Console,
-    mode: ?*uefi.protocol.GraphicsOutput.Mode.Info,
+
+    info_header_tail: [*]u8,
+
+    framebuffer: ?*uefi.protocol.GraphicsOutput.Mode.Info,
 };
 
 fn find_header(address: usize) !*mb2.header {
@@ -40,21 +45,32 @@ fn handle_header_tag(state: *State, tag: *mb2.header_tag) !void {
             for (0..gop.mode.max_mode) |i| {
                 const info = try gop.queryMode(@truncate(i));
                 if (info.horizontal_resolution == fb.width and info.vertical_resolution == fb.height) {
-                    state.mode = info;
+                    state.framebuffer = info;
                     try gop.setMode(@truncate(i));
                     break;
                 }
             }
-            try con.log(.info, "{x} {x}", .{ gop.mode.frame_buffer_base, gop.mode.frame_buffer_size });
-        },
-        .information_request => {
-            const req: *mb2.header_tag_information_request = @ptrCast(tag);
-            const requests = req.requests();
 
-            try con.log(.info, "found information request header tag with {d} requests: {any}", .{ requests.len, requests });
+            const mode = gop.mode;
+            utils.copyAndIncrement(mb2.tag_framebuffer, &state.info_header_tail, .{
+                .size = @truncate(mode.frame_buffer_size),
+                .addr = mode.frame_buffer_base,
+                .pitch = @truncate(mode.frame_buffer_size / mode.info.vertical_resolution),
+                .width = mode.info.horizontal_resolution,
+                .height = mode.info.vertical_resolution,
+                .bpp = 24,
+                .fb_type = .rgb
+            });
+            utils.copyAndIncrement(mb2.tag_framebuffer.info, &state.info_header_tail, .{
+                .rgb = .{
+                    .red_field_position   = 0,  .red_mask_size   = 8,
+                    .green_field_position = 8,  .green_mask_size = 8,
+                    .blue_field_position  = 16, .blue_mask_size  = 8,
+                }
+            });
         },
         else => {
-            try con.log(.warn, "ignoring unsupported multiboot header tag {s}", .{ @tagName(tag.type) });
+            try con.log(.warn, "ignoring unsupported multiboot header tag '{s}'", .{ @tagName(tag.type) });
         }
     }
 }
@@ -63,11 +79,15 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
     const header = try find_header(header_offset);
     const bs = uefi.system_table.boot_services.?;
 
+    // naively assume we can fit all our information in one page
+    const info_header_head = @intFromPtr((try bs.allocatePages(.any, .boot_services_data, 1)).ptr);
+
     var state = State{
         .alloc = alloc,
         .bs = bs,
         .con = con,
-        .mode = null,
+        .info_header_tail = @ptrFromInt(info_header_head + @sizeOf(mb2.fixed_info_tag)),
+        .framebuffer = null,
     };
 
     const addr: usize = @intFromPtr(header);
@@ -78,8 +98,11 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
         try handle_header_tag(&state, tag);
         // all header tags must be aligned, but the size does not include any padding amount;
         // so, we must manually calculate by hand.
-        off = ceilDiv(usize, off + tag.size, mb2.HEADER_ALIGN) * mb2.HEADER_ALIGN;
+        off = utils.ceilDiv(usize, off + tag.size, mb2.HEADER_ALIGN) * mb2.HEADER_ALIGN;
     }
+
+    // write info length at the head
+    @as([*]u32, @ptrFromInt(info_header_head))[0] = @truncate(@intFromPtr(state.info_header_tail) - info_header_head);
 
     try con.log(.info, "exiting uefi environment and jumping to kernel", .{});
     var memory_descriptors: [64]uefi.tables.MemoryDescriptor = undefined;
@@ -91,7 +114,7 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
         :
         : [entry] "r" (entrypoint),
           [magic] "{rax}" (mb2.BOOTLOADER_MAGIC),
-          [hdr]   "{rbx}" (@intFromPtr(header))
+          [hdr]   "{rbx}" (info_header_head)
     );
 
     @panic("kernel entrypoint returned");

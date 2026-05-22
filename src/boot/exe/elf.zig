@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const NoPadding = @import("utils.zig").NoPadding;
+const NoPadding = @import("lib").utils.NoPadding;
 
 pub const Class = enum(u8) { @"32" = 1, @"64" = 2 };
 pub const Endianess = enum(u8) { little = 1, big = 2 };

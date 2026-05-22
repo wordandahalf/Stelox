@@ -3,9 +3,9 @@ const utf16 = std.unicode.utf8ToUtf16LeStringLiteral;
 const uefi = std.os.uefi;
 
 const Console = @import("console.zig");
-const iso9660 = @import("iso9660.zig");
-const elf = @import("elf.zig");
-const multiboot = @import("multiboot.zig");
+const iso9660 = @import("fs/iso9660.zig");
+const elf = @import("exe/elf.zig");
+const multiboot = @import("protoc/multiboot.zig");
 const ceilDiv = @import("utils.zig").ceilDiv;
 
 pub const PageSize = @typeInfo(uefi.Page).array.len;

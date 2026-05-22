@@ -20,3 +20,16 @@ pub fn NoPadding(T: type) type {
 pub fn ceilDiv(T: type, a: T, b: T) T {
     return (a + b - 1) / b;
 }
+
+pub fn copyAndIncrement(comptime T: type, dest: *[*]u8, src: T) void {
+    switch (@typeInfo(T)) {
+        .@"struct", .@"union" => {
+            const ptr = std.mem.asBytes(&src);
+            const len = @sizeOf(T);
+
+            @memcpy(dest.*[0..len], ptr);
+            dest.* = dest.* + len;
+        },
+        else => @compileError("unsupported copy source type '" ++ @typeName(@TypeOf(src)) ++ "'")
+    }
+}

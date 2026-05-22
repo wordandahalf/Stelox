@@ -1,5 +1,4 @@
 //! Multiboot2 constants, structures, and header construction.
-//! Machine translation of the reference header implementation with manual review
 //!
 //! Spec: https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html
 //! Original C header: Copyright (C) 1999,2003,2007,2008,2009,2010  Free Software Foundation, Inc.
@@ -317,6 +316,10 @@ pub fn create_header(comptime arch: architecture, comptime header_tags: anytype)
 }
 
 // Boot-information tags (provided by the bootloader).
+pub const fixed_info_tag = extern struct {
+    total_size: u32,
+    reserved: u32 = 0,
+};
 
 pub const tag = extern struct {
     type: tag_type,
