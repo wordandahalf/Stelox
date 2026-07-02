@@ -1,7 +1,7 @@
 const std = @import("std");
-const utf16 = std.unicode.utf8ToUtf16LeStringLiteral;
 const uefi = std.os.uefi;
 
+const debug = @import("debug.zig");
 const Console = @import("console.zig");
 const iso9660 = @import("fs/iso9660.zig");
 const elf = @import("exe/elf.zig");
@@ -10,20 +10,39 @@ const ceilDiv = @import("utils.zig").ceilDiv;
 
 pub const PageSize = @typeInfo(uefi.Page).array.len;
 
+const State = struct { load_address: ?usize = null, image_size: ?usize = null, panicked: bool = false };
+var state: State = .{};
+
 fn hang() noreturn {
     while (true) {
         asm volatile ("hlt");
     }
 }
 
-pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
+pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, first_trace_addr: ?usize) noreturn {
+    // todo: disable interrupts
     const con = uefi.system_table.con_out.?;
+
     con.setAttribute(.{ .background = .red, .foreground = .white }) catch unreachable;
     con.clearScreen() catch unreachable;
 
-    _ = con.outputString(utf16("An error occurred whilst booting: \r\n\r\n")) catch unreachable;
-    _ = con.outputString(std.unicode.utf8ToUtf16LeAllocZ(uefi.pool_allocator, msg) catch unreachable) catch unreachable;
-    _ = con.outputString(utf16("\r\n\r\nStacktrace: \r\n<empty>")) catch unreachable;
+    debug.outputString(con, "An error occurred whilst booting: \r\n\r\n");
+    debug.outputStringAlloc(con, msg);
+    debug.outputString(con, "\r\n\r\n");
+
+    if (state.panicked) {
+        debug.outputString(con, "Double panic.");
+        hang();
+    }
+    state.panicked = true;
+
+    if (state.load_address) |addr| {
+        debug.outputStringFmtAlloc(con, "Load Address:   0x{x:0>8}\r\n", .{addr});
+    }
+
+    if (first_trace_addr) |addr| {
+        debug.outputStringFmtAlloc(con, "Return Address: 0x{x:0>8}\r\n", .{addr});
+    }
 
     hang();
 }
@@ -31,10 +50,8 @@ pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
 pub fn main() uefi.Error!void {
     boot() catch |err| {
         const con = uefi.system_table.con_out.?;
-        _ = try con.outputString(utf16("Boot failed: "));
-        _ = try con.outputString(
-            std.unicode.utf8ToUtf16LeAllocZ(uefi.pool_allocator, @errorName(err)) catch unreachable
-        );
+        debug.outputString(con, "Boot failed: ");
+        debug.outputStringAlloc(con, @errorName(err));
         hang();
     };
 }
@@ -45,15 +62,15 @@ pub fn load_kernel(alloc: std.mem.Allocator, bs: *uefi.tables.BootServices, con:
 
     // probe block devices for an iso1660 filesystem
     var device: ?*uefi.protocol.BlockIo = null;
-    try con.log(.info, "found {d} block devices to probe", .{ handles.len });
+    try con.log(.info, "found {d} block devices to probe", .{handles.len});
     for (handles) |handle| {
         const io = (try bs.handleProtocol(uefi.protocol.BlockIo, handle)) orelse continue;
         if (io.media.logical_partition) continue;
         if (iso9660.probe(alloc, io)) device = io;
     }
-    try con.log(.debug, "found prospective iso9660/ecma-119 fs", .{});
 
     if (device == null) return error.NoBootableDevice;
+    try con.log(.debug, "found prospective iso9660/ecma-119 fs", .{});
 
     // construct model of fs and search for kernel image
     const pvd = try iso9660.find_volume_descriptor(alloc, device.?, .primary);
@@ -69,7 +86,7 @@ pub fn load_kernel(alloc: std.mem.Allocator, bs: *uefi.tables.BootServices, con:
 
     // parse elf file and program headers
     const file_header = try elf.FileHeader.parse(file);
-    if (file_header != .@"64" or file_header.@"64".@"type" != .executable) return error.BadKernelImage;
+    if (file_header != .@"64" or file_header.@"64".type != .executable) return error.BadKernelImage;
     const elf_header = file_header.@"64";
 
     const program_headers = try elf.ProgramHeaders.parse(file);
@@ -77,7 +94,8 @@ pub fn load_kernel(alloc: std.mem.Allocator, bs: *uefi.tables.BootServices, con:
     const elf_program_headers = program_headers.@"64";
 
     // find the page-aligned block of contiguous memory to allocate for the kernel
-    var start_address: usize = 0; var end_address: usize = 0;
+    var start_address: usize = 0;
+    var end_address: usize = 0;
     for (elf_program_headers) |it| {
         if (it.type != .load) continue;
         if (start_address == 0 or it.vaddr < start_address) start_address = it.vaddr;
@@ -96,16 +114,21 @@ pub fn load_kernel(alloc: std.mem.Allocator, bs: *uefi.tables.BootServices, con:
     for (elf_program_headers) |it| {
         if (it.type != .load) continue;
         if (it.flags.execute and header_address == 0) header_address = it.paddr;
-        @memcpy(mem[it.paddr - start_address..it.paddr - start_address + it.filesz], file[it.offset .. it.offset + it.filesz]);
+        @memcpy(mem[it.paddr - start_address .. it.paddr - start_address + it.filesz], file[it.offset .. it.offset + it.filesz]);
     }
 
-    try con.log(.info, "loaded kernel, entrypoint at 0x{x}", .{ elf_header.entry });
+    try con.log(.info, "loaded kernel, entrypoint at 0x{x}", .{elf_header.entry});
     return .{ header_address, elf_header.entry };
 }
 
 pub fn boot() !void {
     const alloc = uefi.pool_allocator;
     const bs = uefi.system_table.boot_services.?;
+
+    if (try bs.handleProtocol(uefi.protocol.LoadedImage, uefi.handle)) |image| {
+        state.load_address = @intFromPtr(image.image_base);
+        state.image_size = image.image_size;
+    }
 
     var con = Console.init(alloc, uefi.system_table.con_out.?);
     try con.reset();
