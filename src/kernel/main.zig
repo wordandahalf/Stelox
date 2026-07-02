@@ -18,6 +18,8 @@ export fn _start() callconv(.naked) noreturn {
     asm volatile (
         \\ movabs %[stack_top], %%rsp
         \\ xorq %%rbp, %%rbp
+        \\ movq %%rax, %%rdi
+        \\ movq %%rbx, %%rsi
         \\ call %[kmain:P]
         :
         : [stack_top] "i" (&@as([*]align(16) u8, @ptrCast(&stack_bytes))[stack_bytes.len]),
@@ -26,11 +28,17 @@ export fn _start() callconv(.naked) noreturn {
 }
 
 // We use noinline to make sure it don't get inlined by compiler
-noinline fn kmain() callconv(.c) noreturn {
-    const framebuffer: [*]u32 = @ptrFromInt(0x80000000);
-    @memset(framebuffer[0..10240], 0xff0000);
+noinline fn kmain(rax: usize, rbx: usize) callconv(.c) noreturn {
+    if (rax == mb2.BOOTLOADER_MAGIC) {
+        mb2_main(@ptrFromInt(rbx));
+    }
 
     while (true) {
         asm volatile ("hlt");
     }
+}
+
+fn mb2_main(_: *mb2.fixed_info_tag) void {
+    const framebuffer: [*]u32 = @ptrFromInt(0x80000000);
+    @memset(framebuffer[0..10240], 0x00ff00);
 }
