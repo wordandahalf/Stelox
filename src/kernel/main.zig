@@ -1,12 +1,10 @@
 const mb2 = @import("lib").mb2;
-const console = @import("console.zig");
+const Serial = @import("x86/serial.zig").Serial;
 
 export var multiboot align(8) linksection(".multiboot") =
     mb2.create_header(.i386, .{
-        mb2.header_tag_framebuffer{
-            .width = 1024, .height = 768, .depth = 24
-        },
-        mb2.information_request(&[_]mb2.tag_type{ .framebuffer }),
+        mb2.header_tag_framebuffer{ .width = 1024, .height = 768, .depth = 24 },
+        mb2.information_request(&[_]mb2.tag_type{.framebuffer}),
     });
 
 export var stack_bytes: [16 * 1024]u8 align(16) linksection(".bss") = undefined;
@@ -27,18 +25,19 @@ export fn _start() callconv(.naked) noreturn {
     );
 }
 
-// We use noinline to make sure it don't get inlined by compiler
 noinline fn kmain(rax: usize, rbx: usize) callconv(.c) noreturn {
     if (rax == mb2.BOOTLOADER_MAGIC) {
         mb2_main(@ptrFromInt(rbx));
     }
-
-    while (true) {
-        asm volatile ("hlt");
-    }
+    while (true) asm volatile ("hlt");
 }
 
 fn mb2_main(_: *mb2.fixed_info_tag) void {
+    // display some green to show that we're alive
     const framebuffer: [*]u32 = @ptrFromInt(0x80000000);
     @memset(framebuffer[0..10240], 0x00ff00);
+
+    var com = Serial.init(.COM1, .{ .data = .@"8", .parity = .none, .stop = .@"1" });
+    com.setBaudDivisor(3);
+    com.writeAll("[INFO ] kernel loaded with mb2\n");
 }
