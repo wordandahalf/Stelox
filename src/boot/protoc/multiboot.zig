@@ -15,6 +15,7 @@ const State = struct {
     info_header_tail: [*]u8,
 
     framebuffer: ?*uefi.protocol.GraphicsOutput.Mode.Info,
+    terminate_boot_services: bool = true,
 };
 
 fn find_header(address: usize) !*mb2.header {
@@ -38,6 +39,18 @@ fn handle_header_tag(state: *State, tag: *mb2.header_tag) !void {
     const bs = state.bs;
 
     switch (tag.type) {
+        .console_flags => {
+            const cf: *mb2.header_tag_console_flags = @ptrCast(tag);
+            if (cf.console_flags.console_required and cf.console_flags.ega_text_supported) {
+                try con.log(.warn, "requested EGA text mode is unsupported.", .{});
+            }
+        },
+        .module_align => {
+            // do nothing; we only use the EFI page allocator, so all modules will be page-aligned by default
+        },
+        .efi_bs => {
+            state.terminate_boot_services = false;
+        },
         .framebuffer => {
             const fb: *mb2.header_tag_framebuffer = @ptrCast(tag);
             const gop = try bs.locateProtocol(uefi.protocol.GraphicsOutput, null) orelse return;
@@ -107,7 +120,9 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
     try con.log(.info, "exiting uefi environment and jumping to kernel", .{});
     var memory_descriptors: [64]uefi.tables.MemoryDescriptor = undefined;
     const memory_map = try bs.getMemoryMap(@ptrCast(&memory_descriptors));
-    try bs.exitBootServices(uefi.handle, memory_map.info.key);
+
+    if (state.terminate_boot_services)
+        try bs.exitBootServices(uefi.handle, memory_map.info.key);
 
     asm volatile (
         \\ jmp *%[entry]
