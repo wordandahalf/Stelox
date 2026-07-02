@@ -1,5 +1,4 @@
 /// Implementation of the ISO9660 / ECMA-119 filesystem specification.
-
 const std = @import("std");
 const uefi = std.os.uefi;
 const Console = @import("../console.zig");
@@ -27,7 +26,7 @@ pub const DirectoryRecord = struct {
         interleave_gap_size: u8,
         volume_sequence_number_little: u16,
         volume_sequence_number_big: u16,
-        file_identifier_length: u8
+        file_identifier_length: u8,
     });
 
     header: Header,
@@ -46,11 +45,8 @@ pub const DirectoryRecord = struct {
         const file_identifier_length: u32 = header.file_identifier_length;
         if (@sizeOf(Header) + file_identifier_length > record_length) return ReadError.RecordTooShort;
 
-        const record: DirectoryRecord = .{
-            .header = header,
-            .file_identifier = try alloc.alloc(u8, file_identifier_length)
-        };
-        @memcpy(record.file_identifier.ptr, data[@sizeOf(Header)..@sizeOf(Header) + file_identifier_length]);
+        const record: DirectoryRecord = .{ .header = header, .file_identifier = try alloc.alloc(u8, file_identifier_length) };
+        @memcpy(record.file_identifier.ptr, data[@sizeOf(Header) .. @sizeOf(Header) + file_identifier_length]);
 
         return record;
     }
@@ -74,7 +70,7 @@ pub const RootDirectoryRecord = NoPadding(struct {
     volume_sequence_number_little: u16,
     volume_sequence_number_big: u16,
     file_identifier_length: u8,
-    file_identifier: u8
+    file_identifier: u8,
 });
 
 pub const DateTime = NoPadding(struct {
@@ -84,7 +80,7 @@ pub const DateTime = NoPadding(struct {
     hour: u8,
     minute: u8,
     second: u8,
-    timezone_offset: i8
+    timezone_offset: i8,
 });
 
 pub const FileFlags = packed struct(u8) {
@@ -94,7 +90,7 @@ pub const FileFlags = packed struct(u8) {
     has_record: bool,
     has_permissions: bool,
     _: u2,
-    additional_extents: bool
+    additional_extents: bool,
 };
 
 pub const VolumeDescriptor = union(Type) {
@@ -103,14 +99,14 @@ pub const VolumeDescriptor = union(Type) {
         primary = 1,
         supplementary = 2,
         volume_partition = 3,
-        set_terminator = 255
+        set_terminator = 255,
     };
 
     pub const Generic = NoPadding(struct {
         type: Type,
         identifier: [5]u8,
         version: u8,
-        data: [2041]u8
+        data: [2041]u8,
     });
 
     boot_record: BootRecord,
@@ -130,10 +126,10 @@ pub const VolumeDescriptor = union(Type) {
                 const fieldPtr: []u8 = @ptrCast(@alignCast(&@field(new.*, @tagName(it))));
                 @memcpy(fieldPtr, buf);
                 return new;
-            }
+            },
         }
     }
-    
+
     pub fn deinit(self: *VolumeDescriptor, alloc: std.mem.Allocator) void {
         alloc.destroy(self);
     }
@@ -145,7 +141,7 @@ pub const BootRecord = NoPadding(struct {
     version: u8,
     boot_system_identifier: [32]u8,
     boot_identifier: [32]u8,
-    __: [1977]u8
+    __: [1977]u8,
 });
 
 pub const PrimaryVolumeDescriptor = NoPadding(struct {
@@ -186,15 +182,15 @@ pub const PrimaryVolumeDescriptor = NoPadding(struct {
     file_structure_version: u8,
     ____: u8,
     application_used: [512]u8,
-    _____: [653]u8
+    _____: [653]u8,
 });
 
 pub const vd_size = 2048;
 pub const pvd_id = "CD001";
 pub const pvd_offset: u64 = 0x10;
 
-pub const ReadError = error { IllegalRecordLength, RecordTooShort, BufferToShort, NotFound };
-pub const ProbeError = error { NotFound, BadIdentifier, UnsupportedGeometry };
+pub const ReadError = error{ IllegalRecordLength, RecordTooShort, BufferToShort, NotFound };
+pub const ProbeError = error{ NotFound, BadIdentifier, UnsupportedGeometry };
 
 /// Returns true if the provided block device appears to contain an ISO9660 filesystem.
 pub fn probe(alloc: std.mem.Allocator, io: *uefi.protocol.BlockIo) bool {
@@ -261,7 +257,7 @@ pub fn dirname(path: []const u8) []const u8 {
 /// Returns the basename of the provided path, excluding any version component.
 pub fn basename(path: []const u8) []const u8 {
     const last_slash = std.mem.lastIndexOfScalar(u8, path, '/');
-    const filename = if (last_slash) |i| path[i + 1..] else path;
+    const filename = if (last_slash) |i| path[i + 1 ..] else path;
     const semicolon = std.mem.indexOfScalar(u8, filename, ';');
     return if (semicolon) |i| filename[0..i] else filename;
 }
@@ -290,7 +286,7 @@ pub const PathTable = struct {
         const new = try alloc.create(PathTable);
         new.* = PathTable{
             .value = entry,
-            .children = try std.ArrayList(*PathTable).initCapacity(alloc, 8)
+            .children = try std.ArrayList(*PathTable).initCapacity(alloc, 8),
         };
         return new;
     }
@@ -304,15 +300,11 @@ pub const PathTable = struct {
             const identifier_length: u8 = buf[offset];
 
             const entry_filename = try alloc.alloc(u8, identifier_length);
-            @memcpy(entry_filename, buf[offset + 8..offset + 8 + identifier_length]);
+            @memcpy(entry_filename, buf[offset + 8 .. offset + 8 + identifier_length]);
 
             // spec indicates 1-based indexing
-            const parent: u16 = std.mem.bytesAsValue(u16, buf[offset + 6..offset + 6 + 2]).*;
-            const entry = try init(alloc, .{
-                .lba = std.mem.bytesAsValue(u32, buf[offset + 2..offset + 2 + 4]).*,
-                .parent = parent,
-                .identifier = entry_filename
-            });
+            const parent: u16 = std.mem.bytesAsValue(u16, buf[offset + 6 .. offset + 6 + 2]).*;
+            const entry = try init(alloc, .{ .lba = std.mem.bytesAsValue(u32, buf[offset + 2 .. offset + 2 + 4]).*, .parent = parent, .identifier = entry_filename });
 
             if (parent - 1 < entries.items.len) {
                 try entries.items[parent - 1].children.append(alloc, entry);
@@ -342,7 +334,7 @@ pub const PathTable = struct {
         for (self.children.items) |child| {
             if (std.mem.eql(u8, child.value.identifier, top)) {
                 // add one to length to skip the path separator, which is guaranteed to be present.
-                return find(child, filename[top.len + 1..]);
+                return find(child, filename[top.len + 1 ..]);
             }
         }
 
@@ -367,13 +359,14 @@ pub fn load_path_table(alloc: std.mem.Allocator, io: *uefi.protocol.BlockIo, vd:
 }
 
 pub fn load_file(alloc: std.mem.Allocator, io: *uefi.protocol.BlockIo, table: *PathTable, filename: []const u8) ![]u8 {
-    const parent = table.find(filename) orelse return ReadError.NotFound;    
-    
+    const parent = table.find(filename) orelse return ReadError.NotFound;
+
     const media = io.media;
     var directory_lba = parent.value.lba;
 
     const buf = try alloc.alloc(u8, media.block_size);
-    var offset: usize = 0; var consumed: usize = 0;
+    var offset: usize = 0;
+    var consumed: usize = 0;
     defer alloc.free(buf);
 
     try io.readBlocks(media.media_id, directory_lba, buf);
@@ -385,7 +378,7 @@ pub fn load_file(alloc: std.mem.Allocator, io: *uefi.protocol.BlockIo, table: *P
     // so a record length of 0 indicates the end of the directory.
     while (record.header.record_length != 0 and consumed < parent_length) {
         const is_dir = record.header.file_flags.is_directory;
-        
+
         if (!is_dir and std.mem.eql(u8, basename(record.file_identifier), basename(filename))) {
             defer record.deinit(alloc);
 
@@ -394,10 +387,11 @@ pub fn load_file(alloc: std.mem.Allocator, io: *uefi.protocol.BlockIo, table: *P
             try io.readBlocks(media.media_id, record.header.directory_extent_lba_little, file_buffer);
             return file_buffer;
         }
-        
-        consumed += record.header.record_length; offset += record.header.record_length;
+
+        consumed += record.header.record_length;
+        offset += record.header.record_length;
         record.deinit(alloc);
-        
+
         // if next record is in the next sector, read it in. 6.8.1.1 also requires that each record must end in
         // the sector which it starts in, so we won't have to worry about records spanning multiple sectors.
         if (record.header.record_length == 0 and consumed < parent_length) {
