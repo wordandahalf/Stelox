@@ -1,4 +1,4 @@
-const io = @import("io.zig");
+const io = @import("lib").platform.x86.io;
 
 pub const Port = enum(u16) {
     COM1 = 0x3f8,
@@ -178,51 +178,53 @@ pub const ModemStatus = packed struct(u8) {
     dcd: u1,
 };
 
-pub const Serial = struct {
-    port: Port,
-    int_en: InterruptEnable = .{},
-    fifo: FifoControl = .{},
-    line: LineControl = .{},
-    modem: ModemControl = .{},
+const Self = @This();
 
-    fn offset(self: Serial) u16 {
-        return @intFromEnum(self.port);
-    }
+// pub const Serial = struct {
+port: Port,
+int_en: InterruptEnable = .{},
+fifo: FifoControl = .{},
+line: LineControl = .{},
+modem: ModemControl = .{},
 
-    pub fn init(port: Port, line: LineControl) Serial {
-        return Serial{ .port = port, .line = line };
-    }
+fn offset(self: Self) u16 {
+    return @intFromEnum(self.port);
+}
 
-    pub fn write(self: Serial, val: u8) void {
-        while (self.lineStatus().temt == 0) {}
-        io.outb(self.offset(), val);
-    }
+pub fn init(port: Port, line: LineControl) Self {
+    return .{ .port = port, .line = line };
+}
 
-    pub fn writeAll(self: Serial, val: []const u8) void {
-        for (val) |it| self.write(it);
-    }
+pub fn write(self: Self, val: u8) void {
+    while (self.lineStatus().temt == 0) {}
+    io.outb(self.offset(), val);
+}
 
-    pub fn update(self: Serial) void {
-        io.outb(self.offset() + 1, @bitCast(self.int_en));
-        io.outb(self.offset() + 2, @bitCast(self.fifo));
-        io.outb(self.offset() + 3, @bitCast(self.line));
-        io.outb(self.offset() + 4, @bitCast(self.modem));
-    }
+pub fn writeAll(self: Self, val: []const u8) void {
+    for (val) |it| self.write(it);
+}
 
-    pub fn setBaudDivisor(self: *Serial, divisor: u16) void {
-        self.line.divisor_latch = 1;
-        self.update();
-        io.outb(self.offset(), @truncate(divisor));
-        io.outb(self.offset() + 1, @truncate(divisor >> 8));
-        self.line.divisor_latch = 0;
-        self.update();
-    }
+pub fn update(self: Self) void {
+    io.outb(self.offset() + 1, @bitCast(self.int_en));
+    io.outb(self.offset() + 2, @bitCast(self.fifo));
+    io.outb(self.offset() + 3, @bitCast(self.line));
+    io.outb(self.offset() + 4, @bitCast(self.modem));
+}
 
-    pub fn lineStatus(self: Serial) LineStatus {
-        return @bitCast(io.inb(self.offset() + 5));
-    }
+pub fn setBaudDivisor(self: *Self, divisor: u16) void {
+    self.line.divisor_latch = 1;
+    self.update();
+    io.outb(self.offset(), @truncate(divisor));
+    io.outb(self.offset() + 1, @truncate(divisor >> 8));
+    self.line.divisor_latch = 0;
+    self.update();
+}
 
-    pub fn modemStatus(self: Serial) ModemStatus {
-        return @bitCast(io.inb(self.offset() + 6));
-    }
-};
+pub fn lineStatus(self: Self) LineStatus {
+    return @bitCast(io.inb(self.offset() + 5));
+}
+
+pub fn modemStatus(self: Self) ModemStatus {
+    return @bitCast(io.inb(self.offset() + 6));
+}
+// };

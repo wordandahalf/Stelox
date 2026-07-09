@@ -1,5 +1,8 @@
-const mb2 = @import("lib").mb2;
-const Serial = @import("x86/serial.zig").Serial;
+const lib = @import("lib");
+
+const mb2 = lib.mb2;
+
+const hal = @import("hal").x86.x64;
 
 export var multiboot align(8) linksection(".multiboot") =
     mb2.create_header(.i386, .{
@@ -37,7 +40,10 @@ fn mb2_main(_: *mb2.fixed_info_tag) void {
     const framebuffer: [*]u32 = @ptrFromInt(0x80000000);
     @memset(framebuffer[0..10240], 0x00ff00);
 
-    var com = Serial.init(.COM1, .{ .data = .@"8", .parity = .none, .stop = .@"1" });
+    var com = hal.Serial.init(.COM1, .{ .data = .@"8", .parity = .none, .stop = .@"1" });
     com.setBaudDivisor(3);
     com.writeAll("[INFO ] kernel loaded with mb2\n");
+
+    hal.init();
+    com.writeAll("[INFO ] finished hardware initialization\n");
 }

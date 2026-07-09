@@ -21,7 +21,7 @@ const kernel_target = std.Target.Query{
     // .cpu_features_add = enabled_features
 };
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const mode = b.standardOptimizeOption(.{ .preferred_optimize_mode = .Debug });
 
     const lib_mod = b.addModule("lib", .{
@@ -36,6 +36,15 @@ pub fn build(b: *std.Build) void {
     });
     bootloader_mod.addImport("lib", lib_mod);
 
+    const hal_mod = b.addModule("hal", .{
+        .root_source_file = b.path("src/hal/root.zig"),
+        .target = b.resolveTargetQuery(kernel_target),
+        .optimize = mode,
+        .code_model = .kernel,
+    });
+    hal_mod.addImport("lib", lib_mod);
+    hal_mod.addImport("hal", hal_mod);
+
     const kernel_mod = b.addModule("kernel", .{
         .root_source_file = b.path("src/kernel/main.zig"),
         .target = b.resolveTargetQuery(kernel_target),
@@ -43,6 +52,7 @@ pub fn build(b: *std.Build) void {
         .code_model = .kernel,
     });
     kernel_mod.addImport("lib", lib_mod);
+    kernel_mod.addImport("hal", hal_mod);
 
     const bootloader_exe = b.addExecutable(.{
         .name = "bootx64",
@@ -84,14 +94,17 @@ pub fn build(b: *std.Build) void {
     const installed_file = b.addInstallFileWithDir(created_iso, .{ .custom = "." }, "stelox.iso");
     b.getInstallStep().dependOn(&installed_file.step);
 
+    const shouldMonitor = b.option(bool, "monitor", "enables QEMU monitor mode via stdio") orelse false;
+
     const run_iso = b.addSystemCommand(&.{"qemu-system-x86_64"});
     run_iso.addArgs(&.{ "-drive", "if=pflash,format=raw,file=OVMF.fd" });
     run_iso.addArg("-cdrom");
     run_iso.addFileArg(created_iso);
     run_iso.addArgs(&.{ "-net", "none" });
-    run_iso.addArgs(&.{ "-serial", "stdio" });
+    if (!shouldMonitor) run_iso.addArgs(&.{ "-serial", "stdio" });
     run_iso.addArgs(&.{ "-d", "guest_errors" });
     run_iso.addArgs(&.{ "-m", "512M" });
+    if (shouldMonitor) run_iso.addArgs(&.{ "-monitor", "stdio" });
 
     const qemu = b.step("qemu", "Runs the OS in QEMU");
     qemu.dependOn(&run_iso.step);
