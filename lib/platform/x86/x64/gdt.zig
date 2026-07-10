@@ -1,5 +1,5 @@
 const lib = @import("lib");
-const gdt = lib.platform.x86.x32.gdt;
+const Gdt = lib.platform.x86.x32.Gdt;
 const NoPadding = lib.utils.NoPadding;
 
 /// On x64_64 machines in long mode, the system descriptor is extended to allow for a full
@@ -7,9 +7,9 @@ const NoPadding = lib.utils.NoPadding;
 pub const SystemDescriptor = packed struct(u128) {
     limit_low: u16,
     base_low: u24,
-    access: gdt.Access,
+    access: Gdt.Access,
     limit_high: u4,
-    flags: gdt.Flags,
+    flags: Gdt.Flags,
     base_high: u40,
     _: u32 = 0,
 
@@ -30,12 +30,12 @@ pub const SystemDescriptor = packed struct(u128) {
 };
 
 /// Constructs a segment descriptor from the provided values.
-pub fn segmentDescriptor(limit: u20, base: u32, access: gdt.Access, flags: gdt.Flags) gdt.Descriptor {
-    return gdt.segmentDescriptor(limit, base, access, flags);
+pub fn segmentDescriptor(limit: u20, base: u32, access: Gdt.Access, flags: Gdt.Flags) Gdt.Descriptor {
+    return Gdt.segmentDescriptor(limit, base, access, flags);
 }
 
 /// Constructs a system segment descriptor from the provided values.
-pub fn systemSegmentDescriptor(limit: u20, base: u64, access: gdt.SystemAccess, flags: gdt.Flags) SystemDescriptor {
+pub fn systemSegmentDescriptor(limit: u20, base: u64, access: Gdt.SystemAccess, flags: Gdt.Flags) SystemDescriptor {
     return .{
         .limit_low = @truncate(limit),
         .base_low = @truncate(base),
