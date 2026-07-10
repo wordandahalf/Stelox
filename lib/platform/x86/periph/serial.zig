@@ -180,7 +180,6 @@ pub const ModemStatus = packed struct(u8) {
 
 const Self = @This();
 
-// pub const Serial = struct {
 port: Port,
 int_en: InterruptEnable = .{},
 fifo: FifoControl = .{},
@@ -227,4 +226,3 @@ pub fn lineStatus(self: Self) LineStatus {
 pub fn modemStatus(self: Self) ModemStatus {
     return @bitCast(io.inb(self.offset() + 6));
 }
-// };
