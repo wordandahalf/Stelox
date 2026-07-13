@@ -1,7 +1,5 @@
 const lib = @import("lib");
-
 const mb2 = lib.mb2;
-
 const hal = @import("hal").x86.x64;
 
 export var multiboot align(8) linksection(".multiboot") =
@@ -45,5 +43,14 @@ fn mb2_main(_: *mb2.fixed_info_tag) void {
     com.writeAll("[INFO ] kernel loaded with mb2\n");
 
     hal.init();
+
+    // force a #DIV exception
+    asm volatile (
+        \\ xor %rax, %rax
+        \\ xor %rdx, %rdx
+        \\ xor %rcx, %rcx
+        \\ div %rcx
+    );
+
     com.writeAll("[INFO ] finished hardware initialization\n");
 }

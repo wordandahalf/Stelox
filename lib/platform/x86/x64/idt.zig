@@ -1,13 +1,13 @@
-const gdt = @import("gdt.zig");
-const idt = @import("lib").platform.x86.x32.idt;
+const Gdt = @import("lib").platform.x86.x32.Gdt;
+const Idt = @import("lib").platform.x86.x32.Idt;
 
 pub const Descriptor = packed struct(u128) {
     offset_low: u16,
     selector: u16,
-    _: u8,
-    type: idt.Type,
+    _: u8 = 0,
+    gate_type: Idt.GateType,
     __: u1 = 0,
-    privilege: gdt.PrivilegeLevel,
+    privilege: Gdt.PrivilegeLevel,
     present: u1,
     offset_high: u48,
     ___: u32 = 0,
@@ -17,7 +17,7 @@ pub const Descriptor = packed struct(u128) {
     }
 };
 
-pub fn descriptor(offset: u64, selector: u16, gate_type: idt.GateType, privilege: gdt.PrivilegeLevel, present: u1) Descriptor {
+pub fn descriptor(offset: u64, selector: u16, gate_type: Idt.GateType, privilege: Gdt.PrivilegeLevel, present: u1) Descriptor {
     return .{
         .offset_low = @truncate(offset),
         .selector = selector,
@@ -27,3 +27,5 @@ pub fn descriptor(offset: u64, selector: u16, gate_type: idt.GateType, privilege
         .offset_high = @truncate(offset >> 16),
     };
 }
+
+pub const ServiceRoutine = *const fn () callconv(.naked) void;
