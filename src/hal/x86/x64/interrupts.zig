@@ -8,44 +8,69 @@ const Idt = x86.x64.Idt;
 
 const CodeDescriptorOffset = @import("gdt.zig").CodeDescriptorOffset;
 
-// The first 32 gates are reserved for exceptions; those which have been assigned can be seen below
-// in the Exception enumeration.
-pub const ExceptionsCount = 32;
-pub const ExceptionsGateOffset = 0;
+pub const GateType = enum { interrupt, trap, fault, abort, reserved };
+pub const Gate = struct { mnemonic: ?[]const u8 = null, name: ?[]const u8 = null, type: GateType, error_code: bool = false };
 
-// Then, we use 16 of the remaining 224 external interrupts.
-pub const InterruptsCount = 16;
-pub const InterruptsGateOffset = ExceptionsCount;
+/// A type of exception raised after an invalid operation is made (and rolled back) in which the return address points to
+/// the faulting instruction.
+fn fault(mnemonic: []const u8, name: []const u8, error_code: bool) Gate {
+    return .{ .mnemonic = mnemonic, .name = name, .type = .fault, .error_code = error_code };
+}
 
-pub const GateCount = ExceptionsCount + InterruptsCount;
+/// A type of recoverable exception in which the return address points to after the trapping instruction..
+fn trap(mnemonic: []const u8, name: []const u8) Gate {
+    return .{ .mnemonic = mnemonic, .name = name, .type = .trap };
+}
 
-const Exception = enum(usize) {
-    division = 0,
-    debug = 1,
-    nmi = 2,
-    breakpoint = 3,
-    overflow = 4,
-    bound_range_exceeded = 5,
-    invalid_opcode = 6,
-    device_not_available = 7,
-    double_fault = 8,
-    coprocessor_segment_overrun = 9,
-    invalid_tss = 10,
-    segment_not_present = 11,
-    stack_segment_fault = 12,
-    general_protection_fault = 13,
-    page_fault = 14,
-    x87_fp = 16,
-    alignment_check = 17,
-    machine_check = 18,
-    simd_fp = 19,
-    virtualization = 20,
-    control_protection = 21,
-    hypervisor_injection = 28,
-    vmm_communication = 29,
-    security = 30,
-    _,
-};
+/// A type of unrecoverable exception.
+fn abort(mnemonic: []const u8, name: []const u8, error_code: bool) Gate {
+    return .{ .mnemonic = mnemonic, .name = name, .type = .abort, .error_code = error_code };
+}
+
+fn interrupt() Gate {
+    return .{ .type = .interrupt };
+}
+
+/// Indicates the corresponding gate should not be used.
+fn reserved() Gate {
+    return .{ .type = .reserved };
+}
+
+pub const Gates: [256]Gate = [32]Gate{
+    fault("DE", "Divide Error", false),
+    trap("DB", "Debug Exception"),
+    interrupt(),
+    trap("BP", "Breakpoint"),
+    trap("OF", "Overflow"),
+    fault("BR", "Bound Range Exceeded", false),
+    fault("UD", "Undefined Opcode", false),
+    fault("NM", "Device Not Available", false),
+    abort("DF", "Double Fault", true),
+    reserved(),
+    fault("TS", "Invalid TSS", true),
+    fault("NP", "Segment Not Present", true),
+    fault("SS", "Stack Segment Fault", true),
+    fault("GP", "General Protection Fault", true),
+    fault("PF", "Page Fault", true),
+    reserved(),
+    fault("MF", "Math Fault", false),
+    fault("AC", "Alignment Check", true),
+    abort("MC", "Machine Check", false),
+    fault("XM", "SIMD Floating-Point Exception", false),
+    fault("VE", "Virtualization Exception", false),
+    fault("CP", "Control Protection Exception", true),
+    reserved(),
+    reserved(),
+    reserved(),
+    reserved(),
+    reserved(),
+    reserved(),
+    Gate{ .mnemonic = "HV", .name = "Hypervisor Injection Exception", .type = .interrupt, .error_code = false },
+    fault("VC", "VMM Communication Exception", true),
+    Gate{ .mnemonic = "SX", .name = "Security Exception", .type = .interrupt, .error_code = true },
+    reserved(),
+} ++ [_]Gate{interrupt()} ** 224;
+pub const GateCount = Gates.len;
 
 pub const StackFrame = packed struct {
     // General purpose registers.
@@ -82,40 +107,21 @@ fn isrName(comptime gate: usize) []const u8 {
     return std.fmt.comptimePrint("isr_{d}", .{gate});
 }
 
-var interrupt_handlers = blk: {
-    @setEvalBranchQuota(32768);
-    var temp: [GateCount]Idt.ServiceRoutine = undefined;
-    for (0..temp.len) |i| {
-        temp[i] = @extern(
-            Idt.ServiceRoutine,
-            .{ .name = isrName(i) },
-        );
+/// The array of internal service routines used to delegate to handlers
+var serviceRoutines = blk: {
+    @setEvalBranchQuota(65536);
+    var handlers: [GateCount]Idt.ServiceRoutine = undefined;
+    for (0..handlers.len) |i| {
+        handlers[i] = createServiceRoutine(i);
     }
-    break :blk temp;
+    break :blk handlers;
 };
 
-fn interruptGate(index: usize, privilege: Gdt.PrivilegeLevel) Idt.Descriptor {
-    return Idt.descriptor(
-        // offset is set at runtime using the index
-        index,
-        CodeDescriptorOffset,
-        .interrupt_word,
-        privilege,
-        1,
-    );
-}
-
-fn interruptGates(offset: usize, length: usize, privilege: Gdt.PrivilegeLevel) [length]Idt.Descriptor {
-    var gates: [length]Idt.Descriptor = undefined;
-    for (0..gates.len) |i| {
-        gates[i] = interruptGate(offset + i, privilege);
-    }
-    return gates;
-}
-
-/// Type of fn pointer called by ISR
+/// Type of fn pointer called by service routines
 const Handler = *const fn (stack: *StackFrame) callconv(.c) void;
-export var isrs = [_]Handler{unhandledInterrupt} ** (256);
+
+/// The array of registered handlers for each interrupt.
+export var Handlers = [_]Handler{unhandledInterrupt} ** (256);
 
 fn unhandledInterrupt(stack: *StackFrame) callconv(.c) void {
     // display some red to show that we're dead
@@ -125,53 +131,56 @@ fn unhandledInterrupt(stack: *StackFrame) callconv(.c) void {
     x86.halt();
 }
 
-fn handleDivByZero(stack: *StackFrame) callconv(.c) void {
-    // display some red to show that we're dead
-    const framebuffer: [*]u32 = @ptrFromInt(0x80000000);
-    @memset(framebuffer[0..0x0010_0000], 0xffff00);
-    _ = stack;
-}
-
 /// Type of fn pointer used for an IDT gate's ISR
 const AsmHandler = *const fn () callconv(.naked) void;
-fn createHandler(comptime i: usize) AsmHandler {
+fn createServiceRoutine(comptime idx: usize) AsmHandler {
+    const gate = Gates[idx];
     return &struct {
         fn handler() callconv(.naked) void {
             @setEvalBranchQuota(65536);
-            // x86.push(std.fmt.comptimePrint("${d}", .{i}));
+
+            // push error code if not provided
+            if (!gate.error_code) x86.push("$0");
+            // push interrupt index
+            x86.push(std.fmt.comptimePrint("${d}", .{idx}));
+            // push remaining general-purpose registers
             x86.pusha();
             asm volatile ("mov %rsp, %rdi");
-            asm volatile (std.fmt.comptimePrint("call *(isrs + ({d}))", .{i}));
+            asm volatile ("call *(Handlers + (" ++ std.fmt.comptimePrint("{d}", .{idx}) ++ "))");
+            // pop general-purpose registers
             x86.popa();
-            asm volatile (
-                \\ add $16, %rsp
-                \\ iretq
-            );
+            // discard interrupt index and error code
+            asm volatile ("add $16, %rsp");
+            asm volatile ("iretq");
         }
         comptime {
-            @export(&handler, .{ .name = isrName(i) });
+            @export(&handler, .{ .name = isrName(idx) });
         }
     }.handler;
 }
 
-comptime {
-    for (0..256) |i| _ = createHandler(i);
-}
+var idt = systemTable("lidt", blk: {
+    var gates: [GateCount]Idt.Descriptor = undefined;
+    for (0..gates.len) |i| {
+        const gate = Gates[i];
+        const descriptorType: ?x86.x32.Idt.GateType = switch (gate.type) {
+            .trap, .fault, .abort => .trap_word,
+            .interrupt => .interrupt_word,
+            else => null,
+        };
 
-var idt = systemTable(
-    "lidt",
-    // exceptions
-    interruptGates(ExceptionsGateOffset, ExceptionsCount, 3) ++
-        // interrupt requests
-        interruptGates(InterruptsGateOffset, InterruptsCount, 3),
-);
+        if (descriptorType) |it| {
+            gates[i] = Idt.descriptor(i, CodeDescriptorOffset, it, 3, 1);
+        }
+    }
+    break :blk gates;
+});
 
 pub fn init() void {
     for (0..idt.entries.len) |i| {
-        const offset = @intFromPtr(interrupt_handlers[i]);
+        const offset = @intFromPtr(serviceRoutines[i]);
         idt.entries[i].offset_low = @truncate(offset);
         idt.entries[i].offset_high = @truncate(offset >> 16);
     }
-    isrs[0] = handleDivByZero;
     idt.load();
 }
