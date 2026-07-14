@@ -66,25 +66,26 @@ fn handle_header_tag(state: *State, tag: *mb2.header_tag) !void {
 
             const mode = gop.mode;
             utils.copyAndIncrement(mb2.tag_framebuffer, &state.info_header_tail, .{
-                .size = @truncate(mode.frame_buffer_size),
+                .size = @sizeOf(mb2.tag_framebuffer) + @sizeOf(mb2.tag_framebuffer.info),
                 .addr = mode.frame_buffer_base,
                 .pitch = @truncate(mode.frame_buffer_size / mode.info.vertical_resolution),
                 .width = mode.info.horizontal_resolution,
                 .height = mode.info.vertical_resolution,
                 .bpp = 24,
-                .fb_type = .rgb
+                .fb_type = .rgb,
             });
-            utils.copyAndIncrement(mb2.tag_framebuffer.info, &state.info_header_tail, .{
-                .rgb = .{
-                    .red_field_position   = 0,  .red_mask_size   = 8,
-                    .green_field_position = 8,  .green_mask_size = 8,
-                    .blue_field_position  = 16, .blue_mask_size  = 8,
-                }
-            });
+            utils.copyAndIncrement(mb2.tag_framebuffer.info, &state.info_header_tail, .{ .rgb = .{
+                .red_field_position = 0,
+                .red_mask_size = 8,
+                .green_field_position = 8,
+                .green_mask_size = 8,
+                .blue_field_position = 16,
+                .blue_mask_size = 8,
+            } });
         },
         else => {
-            try con.log(.warn, "ignoring unsupported multiboot header tag '{s}'", .{ @tagName(tag.type) });
-        }
+            try con.log(.warn, "ignoring unsupported multiboot header tag '{s}'", .{@tagName(tag.type)});
+        },
     }
 }
 
@@ -104,7 +105,7 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
     };
 
     const addr: usize = @intFromPtr(header);
-    var off:  usize = @sizeOf(mb2.header);
+    var off: usize = @sizeOf(mb2.header);
 
     var tag: *mb2.header_tag = @ptrFromInt(addr + off);
     while (off < header.header_length and tag.type != .end) : (tag = @ptrFromInt(addr + off)) {
@@ -129,7 +130,7 @@ pub fn execute(alloc: std.mem.Allocator, con: *Console, header_offset: usize, en
         :
         : [entry] "r" (entrypoint),
           [magic] "{rax}" (mb2.BOOTLOADER_MAGIC),
-          [hdr]   "{rbx}" (info_header_head)
+          [hdr] "{rbx}" (info_header_head),
     );
 
     @panic("kernel entrypoint returned");
