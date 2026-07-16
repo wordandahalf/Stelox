@@ -169,7 +169,7 @@ const packed_header_tag = struct {
 pub const header_tag_information_request = struct {
     // unfortunately need to explicitly specify alignment because
     // reified structs cannot have decls.
-    type: header_tag_type   align(1) = .information_request,
+    type: header_tag_type align(1) = .information_request,
     flags: header_tag_flags align(1) = .{},
     size: u32 align(1),
 
@@ -297,7 +297,7 @@ pub fn create_header(comptime arch: architecture, comptime header_tags: anytype)
                 @memcpy(assembled_header[offset .. offset + tag_bytes.len], tag_bytes);
                 @memcpy(
                     assembled_header[offset + tag_bytes.len .. offset + tag_bytes.len + data_bytes.len],
-                    data_bytes
+                    data_bytes,
                 );
                 offset = align_up(offset + it.tag.size, TAG_ALIGN);
             },
@@ -305,7 +305,7 @@ pub fn create_header(comptime arch: architecture, comptime header_tags: anytype)
                 const tag_bytes = std.mem.asBytes(&it);
                 @memcpy(assembled_header[offset .. offset + tag_bytes.len], tag_bytes);
                 offset = align_up(offset + it.size, TAG_ALIGN);
-            }
+            },
         }
     }
 
@@ -412,6 +412,7 @@ pub const tag_framebuffer = extern struct {
     type: tag_type = .framebuffer,
     size: u32,
     addr: u64,
+    /// the number of bytes in a row; not necessarily width * bpp
     pitch: u32,
     width: u32,
     height: u32,
