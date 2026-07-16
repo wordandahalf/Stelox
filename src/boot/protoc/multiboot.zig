@@ -71,7 +71,7 @@ fn handle_header_tag(state: *State, tag: *mb2.header_tag) !void {
                 .pitch = @truncate(mode.frame_buffer_size / mode.info.vertical_resolution),
                 .width = mode.info.horizontal_resolution,
                 .height = mode.info.vertical_resolution,
-                .bpp = 24,
+                .bpp = 32,
                 .fb_type = .rgb,
             });
             utils.copyAndIncrement(mb2.tag_framebuffer.info, &state.info_header_tail, .{ .rgb = .{
